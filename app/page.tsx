@@ -14,7 +14,14 @@ export default function Home() {
       .then((res) => res.json())
       .then((data) => setGames(data));
   }, []);
-
+  
+  useEffect(() => {
+    fetch("/api/get-slate")
+      .then((res) => res.json())
+      .then((data) => setGames(Array.isArray(data) ? data : []))
+      .catch(() => setGames([]));
+  }, []);
+  
   const handleSelect = (gameId: string, team: string) => {
     const existing = picks.find((p) => p.gameId === gameId);
     if (existing && existing.team === team) {
