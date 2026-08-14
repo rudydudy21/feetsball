@@ -16,6 +16,17 @@ type SlateGame = {
   HomeRank?: string | number;
 };
 
+const normalizeTeamName = (value: unknown): string =>
+  String(value ?? '')
+    .trim()
+    .replace(/['’]/g, '')
+    .replace(/[^a-zA-Z0-9\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+
+const teamMatches = (savedTeam: string, slateTeam: string) =>
+  normalizeTeamName(savedTeam) === normalizeTeamName(slateTeam);
+
 const normalizeExistingPicks = (value: unknown): PickEntry[] => {
   const unwrapArray = (candidate: unknown): unknown[] => {
     if (Array.isArray(candidate)) return candidate;
@@ -101,7 +112,7 @@ export default function Home() {
 
   const handleSelect = (gameId: string, team: string) => {
     const existing = picks.find((p) => p.gameId === gameId);
-    if (existing && existing.team === team) {
+    if (existing && teamMatches(existing.team, team)) {
       setPicks(picks.filter((p) => p.gameId !== gameId));
     } else if (existing) {
       setPicks(picks.map((p) => (p.gameId === gameId ? { ...p, team } : p)));
@@ -164,6 +175,8 @@ export default function Home() {
 
         const payload = await res.json();
         const normalized = normalizeExistingPicks(payload);
+        console.log('GET /api/get-my-picks payload:', payload);
+        console.log('Normalized picks:', normalized);
         setPicks(normalized);
       } catch {
         if (isActive) setPicks([]);
@@ -313,8 +326,8 @@ export default function Home() {
               style={{
                 flex: 1, padding: "10px", borderRadius: "16px", border: "none", cursor: locked ? "default" : "pointer",
                 transition: "0.2s",
-                backgroundColor: myPick?.team === game.AwayTeam ? "#2563eb" : "#f8fafc",
-                color: myPick?.team === game.AwayTeam ? "#fff" : "#1e293b",
+                backgroundColor: myPick && teamMatches(myPick.team, game.AwayTeam) ? "#2563eb" : "#f8fafc",
+                color: myPick && teamMatches(myPick.team, game.AwayTeam) ? "#fff" : "#1e293b",
               }}
             >
               <Image
@@ -351,8 +364,8 @@ export default function Home() {
               style={{
                 flex: 1, padding: "10px", borderRadius: "16px", border: "none", cursor: locked ? "default" : "pointer",
                 transition: "0.2s",
-                backgroundColor: myPick?.team === game.HomeTeam ? "#2563eb" : "#f8fafc",
-                color: myPick?.team === game.HomeTeam ? "#fff" : "#1e293b",
+                backgroundColor: myPick && teamMatches(myPick.team, game.HomeTeam) ? "#2563eb" : "#f8fafc",
+                color: myPick && teamMatches(myPick.team, game.HomeTeam) ? "#fff" : "#1e293b",
               }}
             >
               <Image

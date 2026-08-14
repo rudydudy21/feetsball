@@ -24,6 +24,8 @@ export async function POST(request: Request) {
     }
 
     const payload = await response.json();
+    console.log('RAW GET-PICKS PAYLOAD:', payload);
+
     const candidates = [
       payload,
       payload?.data,
@@ -79,6 +81,7 @@ export async function POST(request: Request) {
       })
       .filter((pick): pick is { gameId: string; team: string; wager: number } => pick !== null);
 
+    console.log('MAPPED PICKS:', mappedPicks);
     return NextResponse.json(mappedPicks);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
