@@ -177,31 +177,21 @@ export default function Home() {
 {/* Games */}
 <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
   {games.map((game: any) => {
-    const myPick = picks.find((p) => p.gameId === game.id);
-    
-    // 1. Define the Lock Logic - COMMENTED OUT FOR TESTING WITH 2025 DATA
-    // const now = new Date();
-    // const kickoff = new Date(game.date);
-    // const isPastKickoff = now > kickoff;
-    // const isAfterSaturdayNoon = now.getDay() === 6 && now.getHours() >= 12;
-    // const isSundayToTuesday = now.getDay() >= 0 && now.getDay() <= 2;
-    // const locked = isPastKickoff || isAfterSaturdayNoon || isSundayToTuesday;
-    
-    // Unlocked for testing
-    const locked = false;
+    const myPick = picks.find((p) => p.gameId === game.GameID);
+    const locked = false; // Unlocked for testing
 
-    // 2. Format the Kickoff Time (e.g., Sat 3:30 PM)
-    const kickoff = new Date(game.date);
-    const formattedTime = kickoff.toLocaleString('en-US', { 
-      weekday: 'short', 
-      hour: 'numeric', 
-      minute: '2-digit', 
-      hour12: true 
-    });
+    // Format the Kickoff Time safely
+    const kickoff = new Date(game.Kickoff_Time);
+    const formattedTime = !isNaN(kickoff.getTime()) 
+      ? kickoff.toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit', hour12: true }) 
+      : game.Kickoff_Time;
+
+    const spreadVal = Number(game.Spread);
+    const hasValidSpread = !isNaN(spreadVal);
 
     return (
       <div
-        key={game.id}
+        key={game.GameID}
         style={{
           backgroundColor: "#fff",
           borderRadius: "24px",
@@ -209,25 +199,15 @@ export default function Home() {
           boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
           border: "1px solid #e2e8f0",
           opacity: locked ? 0.8 : 1,
-          position: 'relative' // Needed for the kickoff badge positioning
+          position: 'relative'
         }}
       >
         {/* KICKOFF BADGE */}
         <div style={{ 
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            gap: '6px',
-            fontSize: '9px', 
-            fontWeight: '900', 
-            marginBottom: '8px',
-            textTransform: 'uppercase',
-            letterSpacing: '1px'
+            display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px',
+            fontSize: '9px', fontWeight: '900', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px'
           }}>
-            {/* Always show the time */}
             <span style={{ color: '#64748b' }}>{formattedTime}</span>
-            
-            {/* If locked, add the red indicator and icon */}
             {locked && (
               <span style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '3px' }}>
                 • <span style={{ fontSize: '10px' }}>🔒</span> LOCKED
@@ -235,55 +215,34 @@ export default function Home() {
             )}
           </div>
 
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "5px",
-          }}
-        >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "5px" }}>
+          
           {/* AWAY TEAM BUTTON */}
           <button
-            onClick={() => !locked && handleSelect(game.id, game.away)}
+            onClick={() => !locked && handleSelect(game.GameID, game.AwayTeam)}
             disabled={locked}
             style={{
-              flex: 1,
-              padding: "10px",
-              borderRadius: "16px",
-              border: "none",
-              cursor: locked ? "default" : "pointer",
+              flex: 1, padding: "10px", borderRadius: "16px", border: "none", cursor: locked ? "default" : "pointer",
               transition: "0.2s",
-              backgroundColor: myPick?.team === game.away ? "#2563eb" : "#f8fafc",
-              color: myPick?.team === game.away ? "#fff" : "#1e293b",
+              backgroundColor: myPick?.team === game.AwayTeam ? "#2563eb" : "#f8fafc",
+              color: myPick?.team === game.AwayTeam ? "#fff" : "#1e293b",
             }}
           >
             <img
-              src={game.awayLogo}
-              style={{
-                width: "45px",
-                height: "45px",
-                objectFit: "contain",
-                marginBottom: "8px",
-                filter: locked && myPick?.team !== game.away ? "grayscale(100%)" : "none",
-              }}
+              src={game.AwayLogo}
+              style={{ width: "45px", height: "45px", objectFit: "contain", marginBottom: "8px" }}
               alt=""
             />
             <div style={{ fontSize: "11px", fontWeight: "900", display: "flex", justifyContent: "center", alignItems: "center" }}>
-              {game.awayRank && game.awayRank !== "" && (
-                <span style={{ color: myPick?.team === game.away ? "#bfdbfe" : "#94a3b8", marginRight: "4px", fontSize: "10px" }}>
-                  #{game.awayRank}
+              {game.AwayRank && game.AwayRank !== "" && (
+                <span style={{ color: myPick?.team === game.AwayTeam ? "#bfdbfe" : "#94a3b8", marginRight: "4px", fontSize: "10px" }}>
+                  #{game.AwayRank}
                 </span>
               )}
-              {game.away?.toUpperCase()}
-              {game.spread && (
-                <span style={{ 
-                  color: myPick?.team === game.away ? "#bfdbfe" : "#94a3b8", 
-                  marginLeft: "4px", 
-                  fontSize: "10px",
-                  fontWeight: "bold"
-                }}>
-                  ({(game.spread * -1) > 0 ? '+' : ''}{game.spread * -1})
+              {game.AwayTeam?.toUpperCase()}
+              {hasValidSpread && (
+                <span style={{ color: myPick?.team === game.AwayTeam ? "#bfdbfe" : "#94a3b8", marginLeft: "4px", fontSize: "10px", fontWeight: "bold" }}>
+                  ({(spreadVal * -1) > 0 ? '+' : ''}{spreadVal * -1})
                 </span>
               )}
             </div>
@@ -295,45 +254,30 @@ export default function Home() {
 
           {/* HOME TEAM BUTTON */}
           <button
-            onClick={() => !locked && handleSelect(game.id, game.home)}
+            onClick={() => !locked && handleSelect(game.GameID, game.HomeTeam)}
             disabled={locked}
             style={{
-              flex: 1,
-              padding: "10px",
-              borderRadius: "16px",
-              border: "none",
-              cursor: locked ? "default" : "pointer",
+              flex: 1, padding: "10px", borderRadius: "16px", border: "none", cursor: locked ? "default" : "pointer",
               transition: "0.2s",
-              backgroundColor: myPick?.team === game.home ? "#2563eb" : "#f8fafc",
-              color: myPick?.team === game.home ? "#fff" : "#1e293b",
+              backgroundColor: myPick?.team === game.HomeTeam ? "#2563eb" : "#f8fafc",
+              color: myPick?.team === game.HomeTeam ? "#fff" : "#1e293b",
             }}
           >
             <img
-              src={game.homeLogo}
-              style={{
-                width: "45px",
-                height: "45px",
-                objectFit: "contain",
-                marginBottom: "8px",
-                filter: locked && myPick?.team !== game.home ? "grayscale(100%)" : "none",
-              }}
+              src={game.HomeLogo}
+              style={{ width: "45px", height: "45px", objectFit: "contain", marginBottom: "8px" }}
               alt=""
             />
             <div style={{ fontSize: "11px", fontWeight: "900", display: "flex", justifyContent: "center", alignItems: "center" }}>
-              {game.homeRank && game.homeRank !== "" && (
-                <span style={{ color: myPick?.team === game.home ? "#bfdbfe" : "#94a3b8", marginRight: "4px", fontSize: "10px" }}>
-                  #{game.homeRank}
+              {game.HomeRank && game.HomeRank !== "" && (
+                <span style={{ color: myPick?.team === game.HomeTeam ? "#bfdbfe" : "#94a3b8", marginRight: "4px", fontSize: "10px" }}>
+                  #{game.HomeRank}
                 </span>
               )}
-              {game.home?.toUpperCase()}
-              {game.spread && (
-                <span style={{ 
-                  color: myPick?.team === game.home ? "#bfdbfe" : "#94a3b8", 
-                  marginLeft: "4px", 
-                  fontSize: "10px",
-                  fontWeight: "bold"
-                }}>
-                  ({game.spread > 0 ? '+' : ''}{game.spread})
+              {game.HomeTeam?.toUpperCase()}
+              {hasValidSpread && (
+                <span style={{ color: myPick?.team === game.HomeTeam ? "#bfdbfe" : "#94a3b8", marginLeft: "4px", fontSize: "10px", fontWeight: "bold" }}>
+                  ({spreadVal > 0 ? '+' : ''}{spreadVal})
                 </span>
               )}
             </div>
@@ -342,16 +286,7 @@ export default function Home() {
 
         {/* WAGER SECTION */}
         {myPick && (
-          <div
-            style={{
-              marginTop: "10px",
-              paddingTop: "5px",
-              borderTop: "1px solid #f1f5f9",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
+          <div style={{ marginTop: "10px", paddingTop: "5px", borderTop: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontSize: "10px", fontWeight: "bold", color: "#94a3b8" }}>
               {locked ? "FINAL WAGER" : "WAGER"}
             </span>
@@ -359,14 +294,10 @@ export default function Home() {
               {[1, 2, 3, 4, 5].map((num) => (
                 <button
                   key={num}
-                  disabled={locked || picks.some((p) => p.wager === num && p.gameId !== game.id)}
-                  onClick={() => handleWager(game.id, num)}
+                  disabled={locked || picks.some((p) => p.wager === num && p.gameId !== game.GameID)}
+                  onClick={() => handleWager(game.GameID, num)}
                   style={{
-                    width: "36px",
-                    height: "36px",
-                    borderRadius: "10px",
-                    border: "1px solid #e2e8f0",
-                    fontWeight: "bold",
+                    width: "36px", height: "36px", borderRadius: "10px", border: "1px solid #e2e8f0", fontWeight: "bold",
                     cursor: locked ? "default" : "pointer",
                     backgroundColor: myPick.wager === num ? "#0f172a" : "#fff",
                     color: myPick.wager === num ? "#fff" : "#64748b",
