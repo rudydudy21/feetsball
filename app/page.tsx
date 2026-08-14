@@ -24,8 +24,19 @@ const normalizeTeamName = (value: unknown): string =>
     .replace(/\s+/g, ' ')
     .toLowerCase();
 
+const normalizeGameId = (value: unknown): string =>
+  String(value ?? '')
+    .trim()
+    .replace(/\.0$/, '')
+    .replace(/^0+(?=\d)/, '');
+
 const teamMatches = (savedTeam: string, slateTeam: string) =>
   normalizeTeamName(savedTeam) === normalizeTeamName(slateTeam);
+
+const matchesGame = (pick: PickEntry, gameId: string, awayTeam: string, homeTeam: string) =>
+  normalizeGameId(pick.gameId) === normalizeGameId(gameId) ||
+  teamMatches(pick.team, awayTeam) ||
+  teamMatches(pick.team, homeTeam);
 
 const normalizeExistingPicks = (value: unknown): PickEntry[] => {
   const unwrapArray = (candidate: unknown): unknown[] => {
@@ -111,19 +122,23 @@ export default function Home() {
   }, []);
 
   const handleSelect = (gameId: string, team: string) => {
-    const existing = picks.find((p) => p.gameId === gameId);
+    const existing = picks.find((p) => matchesGame(p, gameId, team, team));
     if (existing && teamMatches(existing.team, team)) {
-      setPicks(picks.filter((p) => p.gameId !== gameId));
+      setPicks(picks.filter((p) => !matchesGame(p, gameId, team, team)));
     } else if (existing) {
-      setPicks(picks.map((p) => (p.gameId === gameId ? { ...p, team } : p)));
+      setPicks(picks.map((p) => (matchesGame(p, gameId, team, team) ? { ...p, team } : p)));
     } else if (picks.length < 5) {
       setPicks([...picks, { gameId, team, wager: 0 }]);
     }
   };
 
   const handleWager = (gameId: string, wager: number) => {
-    setPicks(picks.map((p) => (p.gameId === gameId ? { ...p, wager } : p)));
+    setPicks(picks.map((p) => (
+      normalizeGameId(p.gameId) === normalizeGameId(gameId) ? { ...p, wager } : p
+    )));
   };
+
+  const clearLoadedPicks = () => setPicks([]);
 
   const handleSubmit = async () => {
     setSubmitting(true);
@@ -241,7 +256,7 @@ export default function Home() {
         </nav>
 
         {/* Credentials */}
-        <div style={{ display: "flex", gap: "15px", marginBottom: "30px" }}>
+        <div style={{ display: "flex", gap: "15px", marginBottom: "10px" }}>
           <input
             placeholder="Username"
             style={{
@@ -272,6 +287,26 @@ export default function Home() {
           />
         </div>
 
+        {picks.length > 0 && (
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "20px" }}>
+            <button
+              type="button"
+              onClick={clearLoadedPicks}
+              style={{
+                border: "1px solid #cbd5e1",
+                backgroundColor: "#fff",
+                color: "#0f172a",
+                borderRadius: "10px",
+                padding: "8px 12px",
+                fontWeight: 800,
+                cursor: "pointer",
+              }}
+            >
+              Clear picks
+            </button>
+          </div>
+        )}
+
 {showLoadingState ? (
   <div style={{ padding: "16px", textAlign: "center", color: "#64748b", fontWeight: "700" }}>
     Loading slate...
@@ -279,7 +314,7 @@ export default function Home() {
 ) : (
   <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
     {games.map((game: SlateGame) => {
-      const myPick = picks.find((p) => p.gameId === game.GameID);
+      const myPick = picks.find((p) => matchesGame(p, game.GameID, game.AwayTeam, game.HomeTeam));
       const locked = false; // Unlocked for testing
 
       // Format the Kickoff Time safely
