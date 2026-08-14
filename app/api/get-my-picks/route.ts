@@ -1,49 +1,34 @@
-import { doc } from '@/lib/googleSheets';
 import { NextResponse } from 'next/server';
 
-export async function POST(req: Request) {
-  const { username, pin } = await req.json();
-
+export async function POST(request: Request) {
   try {
-    await doc.loadInfo();
+    const body = await request.json();
+    const { username, pin } = body;
+
+    if (!username || !pin || String(pin).length !== 4) {
+      return NextResponse.json([], { status: 200 });
+    }
+
+    const scriptUrl = process.env.NEXT_PUBLIC_GOOGLE_SCRIPT_URL;
+    if (!scriptUrl) {
+      console.error("CRITICAL: NEXT_PUBLIC_GOOGLE_SCRIPT_URL is missing.");
+      return NextResponse.json([], { status: 200 });
+    }
+
+    // Call your Google Apps Script web app with action parameter
+    const targetUrl = `${scriptUrl}?action=getPicks&username=${encodeURIComponent(username)}&pin=${encodeURIComponent(pin)}`;
     
-    // 1. Verify User (Security First)
-    const userSheet = doc.sheetsByTitle['Users'];
-    const userRows = await userSheet.getRows();
-    const user = userRows.find(r => 
-      r.get('Username') === username && 
-      r.get('PIN').toString() === pin.toString()
-    );
+    const response = await fetch(targetUrl, { cache: 'no-store' });
 
-    if (!user) {
-      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+    if (!response.ok) {
+      throw new Error(`Google Apps Script responded with status: ${response.status}`);
     }
 
-    // 2. Get Current Week
-    const settingsSheet = doc.sheetsByTitle['Settings'];
-    await settingsSheet.loadCells('B2');
-    const currentWeek = settingsSheet.getCellByA1('B2').value;
+    const data = await response.json();
+    return NextResponse.json(Array.isArray(data) ? data : []);
 
-    if (currentWeek == null) {
-      return NextResponse.json({ error: 'Current week not configured' }, { status: 500 });
-    }
-
-    // 3. Find existing picks
-    const picksSheet = doc.sheetsByTitle['Picks'];
-    const allRows = await picksSheet.getRows();
-    const myRows = allRows.filter(r => 
-      r.get('Username') === username && 
-      r.get('Week').toString() === currentWeek.toString()
-    );
-
-    const existingPicks = myRows.map(r => ({
-      gameId: r.get('GameID'),
-      team: r.get('Selection'),
-      wager: parseInt(r.get('Wager'))
-    }));
-
-    return NextResponse.json(existingPicks);
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch picks' }, { status: 500 });
+  } catch (error: any) {
+    console.error("API Route /api/get-my-picks error:", error.message);
+    return NextResponse.json([], { status: 200 });
   }
 }

@@ -8,18 +8,20 @@ export default function Home() {
   >([]);
   const [userInfo, setUserInfo] = useState({ username: "", pin: "" });
   const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setLoading(true);
     fetch("/api/get-slate")
       .then((res) => res.json())
-      .then((data) => setGames(data));
-  }, []);
-  
-  useEffect(() => {
-    fetch("/api/get-slate")
-      .then((res) => res.json())
-      .then((data) => setGames(Array.isArray(data) ? data : []))
-      .catch(() => setGames([]));
+      .then((data) => {
+        setGames(Array.isArray(data) ? data : []);
+        setLoading(false);
+      })
+      .catch(() => {
+        setGames([]);
+        setLoading(false);
+      });
   }, []);
 
   const handleSelect = (gameId: string, team: string) => {
