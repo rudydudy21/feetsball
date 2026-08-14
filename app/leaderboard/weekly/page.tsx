@@ -22,7 +22,7 @@ export default function WeeklyLeaderboard() {
       .catch(() => setData([]));
   }, [week]);
 
-  const getStyle = (outcome: string) => {
+  const getStyle = (outcome?: string) => {
     if (outcome === 'correct') return { backgroundColor: '#dcfce7', color: '#166534', border: '1px solid #bbf7d0' };
     if (outcome === 'incorrect') return { backgroundColor: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca' };
     return { backgroundColor: '#f8fafc', color: '#64748b', border: '1px solid #e2e8f0' };
@@ -93,10 +93,11 @@ export default function WeeklyLeaderboard() {
                   <td style={{ padding: '20px', fontWeight: 'bold' }}>{user?.username || 'Unknown'}</td>
                   {[5, 4, 3, 2, 1].map(num => {
                     const p = user?.picks?.[num]; // Safe optional chaining prevents crashes
+                    const outcomeStyle = getStyle(p?.outcome);
                     return (
                       <td key={num} style={{ padding: '10px' }}>
                         <div style={{ 
-                          ...getStyle(p?.outcome), 
+                          ...outcomeStyle,
                           padding: '10px', 
                           borderRadius: '8px', 
                           fontSize: '10px', 
