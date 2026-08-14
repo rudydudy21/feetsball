@@ -16,6 +16,33 @@ type SlateGame = {
   HomeRank?: string | number;
 };
 
+const normalizeExistingPicks = (value: unknown): PickEntry[] => {
+  const array = Array.isArray(value)
+    ? value
+    : Array.isArray((value as { picks?: unknown })?.picks)
+      ? (value as { picks: unknown[] }).picks
+      : Array.isArray((value as { data?: unknown })?.data)
+        ? (value as { data: unknown[] }).data
+        : [];
+
+  return array
+    .map((pick) => {
+      const candidate = pick as Record<string, unknown>;
+      const gameId = String(candidate.GameID ?? candidate.gameId ?? candidate.game_id ?? '').trim();
+      const team = String(candidate.Selection ?? candidate.team ?? candidate.Team ?? '').trim();
+      const wager = Number(candidate.Wager ?? candidate.wager ?? candidate.bet ?? 0);
+
+      if (!gameId || !team) return null;
+
+      return {
+        gameId,
+        team,
+        wager: Number.isFinite(wager) ? wager : 0,
+      } satisfies PickEntry;
+    })
+    .filter((pick): pick is PickEntry => pick !== null);
+};
+
 export default function Home() {
   const [games, setGames] = useState<SlateGame[]>([]);
   const [picks, setPicks] = useState<PickEntry[]>([]);
@@ -86,10 +113,11 @@ export default function Home() {
         });
 
         if (res.ok) {
-          const existing = await res.json();
-          if (existing.length > 0) {
-            setPicks(existing);
-            // Optional: alert("Welcome back! We've loaded your current picks.");
+          const payload = await res.json();
+          const normalized = normalizeExistingPicks(payload);
+
+          if (normalized.length > 0) {
+            setPicks(normalized);
           }
         }
       }
