@@ -27,8 +27,9 @@ export async function POST(request: Request) {
     const data = await response.json();
     return NextResponse.json(Array.isArray(data) ? data : []);
 
-  } catch (error: any) {
-    console.error("API Route /api/get-my-picks error:", error.message);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error("API Route /api/get-my-picks error:", message);
     return NextResponse.json([], { status: 200 });
   }
 }

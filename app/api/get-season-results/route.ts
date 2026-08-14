@@ -21,9 +21,9 @@ export async function GET() {
     const resultsArray = Array.isArray(data) ? data : [];
     return NextResponse.json(resultsArray);
 
-  } catch (error: any) {
-    console.error("API Route /api/get-season-results error:", error.message);
-    // Return an empty array on failure so the frontend never crashes with a 500
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error("API Route /api/get-season-results error:", message);
     return NextResponse.json([], { status: 200 });
   }
 }

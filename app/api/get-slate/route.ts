@@ -17,8 +17,9 @@ export async function GET() {
     const data = await response.json();
     return NextResponse.json(Array.isArray(data) ? data : []);
 
-  } catch (error: any) {
-    console.error("API Route /api/get-slate error:", error.message);
-    return NextResponse.json([], { status: 200 }); // Always return empty array instead of 500
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error("API Route /api/get-slate error:", message);
+    return NextResponse.json([], { status: 200 });
   }
 }

@@ -11,15 +11,16 @@ export async function POST(request: Request) {
     }
 
     // Safely parse incoming JSON body with a fallback
-    let body;
+    let body: unknown;
     try {
       body = await request.json();
-    } catch (parseError) {
+    } catch {
       console.error("SUBMIT-PICKS ERROR: Invalid JSON body received");
       return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
     }
 
-    const { userInfo, picks } = body;
+    const payload = body as { userInfo?: unknown; picks?: unknown };
+    const { userInfo, picks } = payload;
     if (!userInfo || !picks) {
       return NextResponse.json({ error: "Missing userInfo or picks" }, { status: 400 });
     }
@@ -45,8 +46,9 @@ export async function POST(request: Request) {
     const result = await response.json();
     return NextResponse.json(result);
 
-  } catch (error: any) {
-    console.error("SUBMIT-PICKS CRITICAL ERROR:", error.message);
-    return NextResponse.json({ error: error.message || "Submission failed" }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Submission failed";
+    console.error("SUBMIT-PICKS CRITICAL ERROR:", message);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

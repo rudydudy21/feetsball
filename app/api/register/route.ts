@@ -14,9 +14,13 @@ export async function POST(req: Request) {
 
     // 2. Validate the Invite Code
     if (inviteCode?.toString().trim().toUpperCase() !== MASTER_CODE?.toUpperCase()) {
-      return NextResponse.json({ error: 'Invalid League Invite Code', 
-        debug: `Entered: ${inviteCode} | Expected: ${MASTER_CODE}` // Optional: remove after testing{ status: 401 });
-    }, { status: 401 });
+      return NextResponse.json(
+        {
+          error: 'Invalid League Invite Code',
+          debug: `Entered: ${inviteCode} | Expected: ${MASTER_CODE}`,
+        },
+        { status: 401 }
+      );
     }
 
     // 3. Load Users Sheet

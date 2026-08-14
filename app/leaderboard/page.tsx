@@ -1,8 +1,11 @@
 "use client";
+import Link from 'next/link';
 import { useState, useEffect } from 'react';
 
+type LeaderboardPlayer = { username: string; score: number };
+
 export default function Leaderboard() {
-  const [data, setData] = useState([]);
+  const [data, setData] = useState<LeaderboardPlayer[]>([]);
 
   useEffect(() => {
     fetch('/api/get-leaderboard').then(res => res.json()).then(setData);
@@ -14,7 +17,7 @@ export default function Leaderboard() {
         <h1 style={{ textAlign: 'center', fontWeight: '900', fontSize: '32px', marginBottom: '40px' }}>STANDINGS</h1>
         
         <div style={{ backgroundColor: '#fff', borderRadius: '20px', padding: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
-          {data.map((player: any, index: number) => (
+          {data.map((player: LeaderboardPlayer, index: number) => (
             <div key={player.username} style={{ 
               display: 'flex', 
               justifyContent: 'space-between', 
@@ -34,7 +37,7 @@ export default function Leaderboard() {
         </div>
 
         <div style={{ textAlign: 'center', marginTop: '30px' }}>
-          <a href="/" style={{ color: '#2563eb', fontWeight: 'bold', textDecoration: 'none' }}>← Back to Picks</a>
+          <Link href="/" style={{ color: '#2563eb', fontWeight: 'bold', textDecoration: 'none' }}>← Back to Picks</Link>
         </div>
       </div>
     </div>

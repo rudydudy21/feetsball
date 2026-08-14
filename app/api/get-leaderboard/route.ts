@@ -63,7 +63,8 @@ export async function GET() {
       .sort((a, b) => b.score - a.score);
 
     return NextResponse.json(sortedLeaderboard);
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to calculate leaderboard' }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to calculate leaderboard';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

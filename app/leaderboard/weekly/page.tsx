@@ -1,9 +1,16 @@
 "use client";
+import Link from 'next/link';
 import { useState, useEffect } from 'react';
+
+type WeeklyUser = {
+  username?: string;
+  picks?: Record<number, { selection?: string; outcome?: string }>;
+  total?: number;
+};
 
 export default function WeeklyLeaderboard() {
   const [week, setWeek] = useState("1"); // Default to week 1
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<WeeklyUser[]>([]);
 
   useEffect(() => {
     fetch(`/api/get-weekly-results?week=${week}`)
@@ -51,9 +58,9 @@ export default function WeeklyLeaderboard() {
 
         {/* Navigation Menu */}
         <nav style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginBottom: '30px', fontSize: '12px', fontWeight: '900' }}>
-          <a href="/" style={{ color: '#64748b', textDecoration: 'none' }}>PICKS</a>
-          <a href="/leaderboard/weekly" style={{ color: '#0f172a', textDecoration: 'none', borderBottom: '2px solid #2563eb' }}>WEEKLY</a>
-          <a href="/leaderboard/season" style={{ color: '#64748b', textDecoration: 'none' }}>SEASON</a>
+          <Link href="/" style={{ color: '#64748b', textDecoration: 'none' }}>PICKS</Link>
+          <Link href="/leaderboard/weekly" style={{ color: '#0f172a', textDecoration: 'none', borderBottom: '2px solid #2563eb' }}>WEEKLY</Link>
+          <Link href="/leaderboard/season" style={{ color: '#64748b', textDecoration: 'none' }}>SEASON</Link>
         </nav>
 
         <div style={{ marginBottom: '30px' }}>
@@ -81,7 +88,7 @@ export default function WeeklyLeaderboard() {
               </tr>
             </thead>
             <tbody>
-              {data.map((user: any, idx: number) => (
+              {data.map((user: WeeklyUser, idx: number) => (
                 <tr key={user?.username || idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
                   <td style={{ padding: '20px', fontWeight: 'bold' }}>{user?.username || 'Unknown'}</td>
                   {[5, 4, 3, 2, 1].map(num => {

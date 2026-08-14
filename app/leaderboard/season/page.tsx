@@ -1,4 +1,5 @@
 "use client";
+import Link from 'next/link';
 import { useState, useEffect, useMemo } from 'react';
 
 interface UserData {
@@ -7,7 +8,9 @@ interface UserData {
   total: number;
 }
 
-const resolveWeeklyWinner = (week: number, tiedUsers: string[], allScores: any[], maxWeek: number): any => {
+type ScoreEntry = { username: string; week: number; points: number };
+
+const resolveWeeklyWinner = (week: number, tiedUsers: string[], allScores: ScoreEntry[], maxWeek: number): { winner: string; method: string } => {
   // 1. If we only have one user, we have our champion
   if (tiedUsers.length === 1) {
     return { winner: tiedUsers[0], method: week > 1 ? `Tiebreaker (Week ${week})` : 'Outright' };
@@ -112,9 +115,9 @@ export default function SeasonLeaderboard() {
 
         {/* Navigation Menu */}
         <nav style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginBottom: '30px', fontSize: '12px', fontWeight: '900' }}>
-          <a href="/" style={{ color: '#64748b', textDecoration: 'none' }}>PICKS</a>
-          <a href="/leaderboard/weekly" style={{ color: '#64748b', textDecoration: 'none' }}>WEEKLY</a>
-          <a href="/leaderboard/season" style={{ color: '#0f172a', textDecoration: 'none', borderBottom: '2px solid #2563eb' }}>SEASON</a>
+          <Link href="/" style={{ color: '#64748b', textDecoration: 'none' }}>PICKS</Link>
+          <Link href="/leaderboard/weekly" style={{ color: '#64748b', textDecoration: 'none' }}>WEEKLY</Link>
+          <Link href="/leaderboard/season" style={{ color: '#0f172a', textDecoration: 'none', borderBottom: '2px solid #2563eb' }}>SEASON</Link>
         </nav>
 
         <h1 style={{ textAlign: 'center', fontWeight: '900', fontSize: '32px', marginBottom: '10px' }}>SEASON STANDINGS</h1>

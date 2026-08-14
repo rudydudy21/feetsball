@@ -22,8 +22,9 @@ export async function GET(request: Request) {
     const data = await response.json();
     return NextResponse.json(data);
 
-  } catch (error: any) {
-    console.error("API Route Error (/api/get-weekly-results):", error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error("API Route Error (/api/get-weekly-results):", message);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
