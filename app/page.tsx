@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 
 export default function Home() {
-  const [games, setGames] = useState([]);
+  const [games, setGames] = useState<any[]>([]);
   const [picks, setPicks] = useState<
     { gameId: string; team: string; wager: number }[]
   >([]);
@@ -21,7 +21,7 @@ export default function Home() {
       .then((data) => setGames(Array.isArray(data) ? data : []))
       .catch(() => setGames([]));
   }, []);
-  
+
   const handleSelect = (gameId: string, team: string) => {
     const existing = picks.find((p) => p.gameId === gameId);
     if (existing && existing.team === team) {
