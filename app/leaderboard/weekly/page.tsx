@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 
 export default function WeeklyLeaderboard() {
   const [week, setWeek] = useState("1"); // Default to week 1
-  const [data, setData] = useState([]);
+  const [data, setData] = useState<any[]>([]);
 
   useEffect(() => {
     fetch(`/api/get-weekly-results?week=${week}`)
