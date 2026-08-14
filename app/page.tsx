@@ -17,30 +17,66 @@ type SlateGame = {
 };
 
 const normalizeExistingPicks = (value: unknown): PickEntry[] => {
-  const array = Array.isArray(value)
-    ? value
-    : Array.isArray((value as { picks?: unknown })?.picks)
-      ? (value as { picks: unknown[] }).picks
-      : Array.isArray((value as { data?: unknown })?.data)
-        ? (value as { data: unknown[] }).data
-        : [];
+  const unwrapArray = (candidate: unknown): unknown[] => {
+    if (Array.isArray(candidate)) return candidate;
+    if (candidate && typeof candidate === 'object') {
+      const obj = candidate as Record<string, unknown>;
+      for (const key of ['picks', 'data', 'result', 'items', 'records']) {
+        if (Array.isArray(obj[key])) return obj[key] as unknown[];
+      }
+    }
+    return [];
+  };
 
-  return array
-    .map((pick) => {
-      const candidate = pick as Record<string, unknown>;
-      const gameId = String(candidate.GameID ?? candidate.gameId ?? candidate.game_id ?? '').trim();
-      const team = String(candidate.Selection ?? candidate.team ?? candidate.Team ?? '').trim();
-      const wager = Number(candidate.Wager ?? candidate.wager ?? candidate.bet ?? 0);
+  const array = unwrapArray(value);
+  const byGameId = new Map<string, PickEntry>();
 
-      if (!gameId || !team) return null;
+  for (const pick of array) {
+    const candidate = pick as Record<string, unknown>;
+    const gameId = String(
+      candidate.GameID ??
+      candidate.gameId ??
+      candidate.game_id ??
+      candidate.Game_Id ??
+      candidate.gameID ??
+      candidate.id ??
+      ''
+    ).trim();
 
-      return {
-        gameId,
-        team,
-        wager: Number.isFinite(wager) ? wager : 0,
-      } satisfies PickEntry;
-    })
-    .filter((pick): pick is PickEntry => pick !== null);
+    const team = String(
+      candidate.Selection ??
+      candidate.selection ??
+      candidate.Team ??
+      candidate.team ??
+      candidate.SelectedTeam ??
+      candidate.selectedTeam ??
+      candidate.PickedTeam ??
+      candidate.pickedTeam ??
+      ''
+    ).trim();
+
+    const wager = Number(
+      candidate.Wager ??
+      candidate.wager ??
+      candidate.Bet ??
+      candidate.bet ??
+      candidate.Amount ??
+      candidate.amount ??
+      0
+    );
+
+    if (!gameId || !team) continue;
+
+    const normalized = {
+      gameId,
+      team,
+      wager: Number.isFinite(wager) ? wager : 0,
+    } satisfies PickEntry;
+
+    byGameId.set(gameId, normalized);
+  }
+
+  return [...byGameId.values()];
 };
 
 export default function Home() {
@@ -102,29 +138,44 @@ export default function Home() {
   };
 
   useEffect(() => {
+    let isActive = true;
+
     const fetchExistingPicks = async () => {
       const { username, pin } = userInfo;
-      // Only fetch if we have a username and a full 4-digit PIN
-      if (username && pin.length === 4) {
+
+      if (!username || pin.length !== 4) {
+        if (isActive) setPicks([]);
+        return;
+      }
+
+      try {
         const res = await fetch('/api/get-my-picks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username, pin }),
         });
 
-        if (res.ok) {
-          const payload = await res.json();
-          const normalized = normalizeExistingPicks(payload);
+        if (!isActive) return;
 
-          if (normalized.length > 0) {
-            setPicks(normalized);
-          }
+        if (!res.ok) {
+          setPicks([]);
+          return;
         }
+
+        const payload = await res.json();
+        const normalized = normalizeExistingPicks(payload);
+        setPicks(normalized);
+      } catch {
+        if (isActive) setPicks([]);
       }
     };
 
     fetchExistingPicks();
-  }, [userInfo]);
+
+    return () => {
+      isActive = false;
+    };
+  }, [userInfo.username, userInfo.pin]);
 
   // Validation
   const readyToSubmit =
@@ -189,7 +240,7 @@ export default function Home() {
               fontWeight: "bold",
             }}
             onChange={(e) =>
-              setUserInfo({ ...userInfo, username: e.target.value })
+              setUserInfo((prev) => ({ ...prev, username: e.target.value }))
             }
           />
           <input
@@ -204,7 +255,7 @@ export default function Home() {
               textAlign: "center",
               fontWeight: "bold",
             }}
-            onChange={(e) => setUserInfo({ ...userInfo, pin: e.target.value })}
+            onChange={(e) => setUserInfo((prev) => ({ ...prev, pin: e.target.value }))}
           />
         </div>
 

@@ -35,11 +35,49 @@ export async function POST(request: Request) {
     const normalized = candidates.find(Array.isArray);
     const picks = Array.isArray(normalized) ? normalized : [];
 
-    const mappedPicks = picks.map((pick: Record<string, unknown>) => ({
-      gameId: String(pick.GameID ?? pick.gameId ?? pick.game_id ?? '').trim(),
-      team: String(pick.Selection ?? pick.team ?? pick.Team ?? '').trim(),
-      wager: Number(pick.Wager ?? pick.wager ?? pick.bet ?? 0),
-    })).filter((pick) => pick.gameId && pick.team);
+    const mappedPicks = picks
+      .map((pick: Record<string, unknown>) => {
+        const gameId = String(
+          pick.GameID ??
+          pick.gameId ??
+          pick.game_id ??
+          pick.Game_Id ??
+          pick.gameID ??
+          pick.id ??
+          ''
+        ).trim();
+
+        const team = String(
+          pick.Selection ??
+          pick.selection ??
+          pick.Team ??
+          pick.team ??
+          pick.SelectedTeam ??
+          pick.selectedTeam ??
+          pick.PickedTeam ??
+          pick.pickedTeam ??
+          ''
+        ).trim();
+
+        const wager = Number(
+          pick.Wager ??
+          pick.wager ??
+          pick.Bet ??
+          pick.bet ??
+          pick.Amount ??
+          pick.amount ??
+          0
+        );
+
+        if (!gameId || !team) return null;
+
+        return {
+          gameId,
+          team,
+          wager: Number.isFinite(wager) ? wager : 0,
+        };
+      })
+      .filter((pick): pick is { gameId: string; team: string; wager: number } => pick !== null);
 
     return NextResponse.json(mappedPicks);
   } catch (error: unknown) {
