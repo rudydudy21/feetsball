@@ -6,7 +6,13 @@ export default function WeeklyLeaderboard() {
   const [data, setData] = useState([]);
 
   useEffect(() => {
-    fetch(`/api/get-weekly-results?week=${week}`).then(res => res.json()).then(setData);
+    fetch(`/api/get-weekly-results?week=${week}`)
+      .then(res => res.json())
+      .then(resData => {
+        // Ensure we always set an array even if the API returns an error object
+        setData(Array.isArray(resData) ? resData : []);
+      })
+      .catch(() => setData([]));
   }, [week]);
 
   const getStyle = (outcome: string) => {
@@ -43,7 +49,6 @@ export default function WeeklyLeaderboard() {
           </p>
         </div>
 
-
         {/* Navigation Menu */}
         <nav style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginBottom: '30px', fontSize: '12px', fontWeight: '900' }}>
           <a href="/" style={{ color: '#64748b', textDecoration: 'none' }}>PICKS</a>
@@ -67,7 +72,7 @@ export default function WeeklyLeaderboard() {
         </div>
 
         <div style={{ overflowX: 'auto', backgroundColor: '#fff', borderRadius: '16px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
             <thead>
               <tr style={{ backgroundColor: '#f8fafc', borderBottom: '2px solid #f1f5f9' }}>
                 <th style={{ padding: '20px' }}>USER</th>
@@ -76,11 +81,11 @@ export default function WeeklyLeaderboard() {
               </tr>
             </thead>
             <tbody>
-              {data.map((user: any) => (
-                <tr key={user.username} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  <td style={{ padding: '20px', fontWeight: 'bold' }}>{user.username}</td>
+              {data.map((user: any, idx: number) => (
+                <tr key={user?.username || idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <td style={{ padding: '20px', fontWeight: 'bold' }}>{user?.username || 'Unknown'}</td>
                   {[5, 4, 3, 2, 1].map(num => {
-                    const p = user.picks[num];
+                    const p = user?.picks?.[num]; // Safe optional chaining prevents crashes
                     return (
                       <td key={num} style={{ padding: '10px' }}>
                         <div style={{ 
@@ -97,7 +102,9 @@ export default function WeeklyLeaderboard() {
                       </td>
                     );
                   })}
-                  <td style={{ padding: '20px', textAlign: 'right', fontWeight: '900', color: '#2563eb' }}>{user.total}</td>
+                  <td style={{ padding: '20px', textAlign: 'right', fontWeight: '900', color: '#2563eb' }}>
+                    {user?.total ?? 0}
+                  </td>
                 </tr>
               ))}
             </tbody>
