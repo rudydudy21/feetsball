@@ -216,19 +216,19 @@ export default function Home() {
   return (
     <div
       style={{
-        backgroundColor: "#f1f5f9",
+        background: "linear-gradient(180deg, #F5F7FA 0%, #EEF2F6 100%)",
         minHeight: "100vh",
-        padding: "max(12px, env(safe-area-inset-top)) 12px max(18px, env(safe-area-inset-bottom))",
-        color: "#1e293b",
-        fontFamily: "system-ui, sans-serif",
+        padding: "max(10px, env(safe-area-inset-top)) 10px max(18px, env(safe-area-inset-bottom))",
+        color: "#0F172A",
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif",
         WebkitFontSmoothing: "antialiased",
       }}
       >
       <div style={{ maxWidth: "430px", margin: "0 auto", width: "100%", display: "flex", flexDirection: "column", gap: "10px" }}>
-        <div style={{ textAlign: "center" }}>
+        <div style={{ textAlign: "center", paddingTop: "6px" }}>
           <h1
             style={{
-              fontSize: "clamp(1.9rem, 7vw, 3rem)",
+              fontSize: "clamp(2rem, 7vw, 3rem)",
               fontWeight: "900",
               letterSpacing: "-2px",
               margin: "0",
@@ -241,21 +241,20 @@ export default function Home() {
           <p
             style={{
               color: "#64748b",
-              fontWeight: "bold",
+              fontWeight: "800",
               fontSize: "10px",
               letterSpacing: "3px",
-              margin: "5px 0 0",
+              margin: "6px 0 0",
             }}
           >
             2026 CHALLENGE
           </p>
         </div>
 
-        {/* Navigation Menu */}
-        <nav style={{ display: 'flex', justifyContent: 'center', gap: '6px', fontSize: '11px', fontWeight: '900', background: '#e2e8f0', borderRadius: '999px', padding: '4px', alignSelf: 'center', width: 'fit-content' }}>
-          <Link href="/" style={{ color: '#0f172a', textDecoration: 'none', background: '#fff', borderRadius: '999px', padding: '7px 12px', boxShadow: '0 1px 2px rgba(15,23,42,0.08)' }}>PICKS</Link>
-          <Link href="/leaderboard/weekly" style={{ color: '#64748b', textDecoration: 'none', borderRadius: '999px', padding: '7px 12px' }}>WEEKLY</Link>
-          <Link href="/leaderboard/season" style={{ color: '#64748b', textDecoration: 'none', borderRadius: '999px', padding: '7px 12px' }}>SEASON</Link>
+        <nav style={{ display: 'flex', justifyContent: 'center', gap: '6px', fontSize: '11px', fontWeight: '800', background: 'rgba(15,23,42,0.04)', borderRadius: '999px', padding: '4px', alignSelf: 'center', width: 'fit-content', border: '1px solid rgba(148,163,184,0.18)', backdropFilter: 'blur(10px)' }}>
+          <Link href="/" style={{ color: '#0F172A', textDecoration: 'none', background: '#FFFFFF', borderRadius: '999px', padding: '8px 14px', boxShadow: '0 1px 2px rgba(15,23,42,0.06)' }}>PICKS</Link>
+          <Link href="/leaderboard/weekly" style={{ color: '#475569', textDecoration: 'none', borderRadius: '999px', padding: '8px 14px' }}>WEEKLY</Link>
+          <Link href="/leaderboard/season" style={{ color: '#475569', textDecoration: 'none', borderRadius: '999px', padding: '8px 14px' }}>SEASON</Link>
         </nav>
 
         {/* Credentials */}
@@ -264,7 +263,7 @@ export default function Home() {
             e.preventDefault();
             void handleLogin();
           }}
-          style={{ display: "flex", gap: "8px", marginBottom: "10px", alignItems: "stretch", width: "100%" }}
+          style={{ display: "flex", gap: "8px", marginBottom: "6px", alignItems: "stretch", width: "100%" }}
         >
           <input
             placeholder="Username"
@@ -272,12 +271,14 @@ export default function Home() {
             style={{
               flex: 2,
               minWidth: 0,
-              padding: "12px 10px",
-              borderRadius: "12px",
-              border: "2px solid #e2e8f0",
+              padding: "12px 12px",
+              borderRadius: "14px",
+              border: "1px solid rgba(148,163,184,0.35)",
               outline: "none",
-              fontWeight: "bold",
+              fontWeight: "700",
               fontSize: "14px",
+              background: "rgba(255,255,255,0.75)",
+              boxShadow: "inset 0 1px 1px rgba(15,23,42,0.04)",
             }}
             onChange={(e) =>
               setUserInfo((prev) => ({ ...prev, username: normalizeUsernameInput(e.target.value) }))
@@ -292,11 +293,13 @@ export default function Home() {
               flex: 1,
               minWidth: 0,
               padding: "12px 8px",
-              borderRadius: "12px",
-              border: "2px solid #e2e8f0",
+              borderRadius: "14px",
+              border: "1px solid rgba(148,163,184,0.35)",
               textAlign: "center",
-              fontWeight: "bold",
+              fontWeight: "700",
               fontSize: "14px",
+              background: "rgba(255,255,255,0.75)",
+              boxShadow: "inset 0 1px 1px rgba(15,23,42,0.04)",
             }}
             onChange={(e) => setUserInfo((prev) => ({ ...prev, pin: e.target.value }))}
           />
@@ -305,14 +308,15 @@ export default function Home() {
             disabled={loginLoading || !userInfo.username || userInfo.pin.length !== 4}
             style={{
               padding: "0 12px",
-              borderRadius: "12px",
+              borderRadius: "14px",
               border: "none",
-              backgroundColor: !userInfo.username || userInfo.pin.length !== 4 ? "#cbd5e1" : "#0f172a",
+              background: !userInfo.username || userInfo.pin.length !== 4 ? "#cbd5e1" : "linear-gradient(180deg, #0f172a 0%, #111827 100%)",
               color: "#fff",
               fontWeight: 900,
               cursor: !userInfo.username || userInfo.pin.length !== 4 ? "not-allowed" : "pointer",
               whiteSpace: "nowrap",
               fontSize: "12px",
+              boxShadow: !userInfo.username || userInfo.pin.length !== 4 ? "none" : "0 8px 16px rgba(15,23,42,0.15)",
             }}
           >
             {loginLoading ? "LOADING..." : "LOGIN"}
@@ -325,10 +329,10 @@ export default function Home() {
               type="button"
               onClick={clearLoadedPicks}
               style={{
-                border: "1px solid #cbd5e1",
-                backgroundColor: "#fff",
+                border: "1px solid rgba(148,163,184,0.4)",
+                backgroundColor: "rgba(255,255,255,0.8)",
                 color: "#0f172a",
-                borderRadius: "10px",
+                borderRadius: "12px",
                 padding: "7px 10px",
                 fontWeight: 800,
                 cursor: "pointer",
@@ -363,11 +367,11 @@ export default function Home() {
         <div
           key={game.GameID}
           style={{
-            backgroundColor: "#fff",
-            borderRadius: "20px",
+            background: "linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)",
+            borderRadius: "24px",
             padding: "8px 8px 10px",
-            boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
-            border: "1px solid #e2e8f0",
+            boxShadow: "0 10px 24px rgba(15, 23, 42, 0.05), inset 0 1px 0 rgba(255,255,255,0.8)",
+            border: "1px solid rgba(148,163,184,0.18)",
             opacity: locked ? 0.8 : 1,
             position: 'relative'
           }}
@@ -394,17 +398,17 @@ export default function Home() {
               style={{
                 flex: 1,
                 minWidth: 0,
-                padding: "6px 4px 8px",
-                borderRadius: "12px",
-                border: "none",
+                padding: "8px 4px 10px",
+                borderRadius: "18px",
+                border: "1px solid rgba(148,163,184,0.10)",
                 cursor: locked ? "default" : "pointer",
                 transition: "0.2s",
-                backgroundColor: myPick && teamMatches(myPick.team, game.AwayTeam) ? "#2563eb" : "#f8fafc",
-                color: myPick && teamMatches(myPick.team, game.AwayTeam) ? "#fff" : "#1e293b",
+                background: myPick && teamMatches(myPick.team, game.AwayTeam) ? "linear-gradient(180deg, #1D4ED8 0%, #2563EB 100%)" : "linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%)",
+                color: myPick && teamMatches(myPick.team, game.AwayTeam) ? "#FFFFFF" : "#0F172A",
                 display: "flex",
                 flexDirection: "column",
                 justifyContent: "center",
-                boxShadow: myPick && teamMatches(myPick.team, game.AwayTeam) ? "inset 0 0 0 1px rgba(255,255,255,0.2), 0 4px 10px rgba(37,99,235,0.18)" : "inset 0 0 0 1px rgba(148,163,184,0.08)",
+                boxShadow: myPick && teamMatches(myPick.team, game.AwayTeam) ? "0 10px 18px rgba(37,99,235,0.18)" : "inset 0 1px 0 rgba(255,255,255,0.8)",
                 transform: myPick && teamMatches(myPick.team, game.AwayTeam) ? "translateY(-1px)" : "none",
               }}
             >
@@ -431,7 +435,7 @@ export default function Home() {
               )}
             </button>
 
-            <div style={{ fontWeight: "900", color: "#cbd5e1", fontStyle: "italic", fontSize: '10px', display: 'flex', alignItems: 'center' }}>
+            <div style={{ fontWeight: "900", color: "#cbd5e1", fontStyle: "italic", fontSize: '10px', display: 'flex', alignItems: 'center', padding: '0 2px' }}>
               VS
             </div>
 
@@ -442,17 +446,17 @@ export default function Home() {
               style={{
                 flex: 1,
                 minWidth: 0,
-                padding: "6px 4px 8px",
-                borderRadius: "12px",
-                border: "none",
+                padding: "8px 4px 10px",
+                borderRadius: "18px",
+                border: "1px solid rgba(148,163,184,0.10)",
                 cursor: locked ? "default" : "pointer",
                 transition: "0.2s",
-                backgroundColor: myPick && teamMatches(myPick.team, game.HomeTeam) ? "#2563eb" : "#f8fafc",
-                color: myPick && teamMatches(myPick.team, game.HomeTeam) ? "#fff" : "#1e293b",
+                background: myPick && teamMatches(myPick.team, game.HomeTeam) ? "linear-gradient(180deg, #1D4ED8 0%, #2563EB 100%)" : "linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%)",
+                color: myPick && teamMatches(myPick.team, game.HomeTeam) ? "#FFFFFF" : "#0F172A",
                 display: "flex",
                 flexDirection: "column",
                 justifyContent: "center",
-                boxShadow: myPick && teamMatches(myPick.team, game.HomeTeam) ? "inset 0 0 0 1px rgba(255,255,255,0.2), 0 4px 10px rgba(37,99,235,0.18)" : "inset 0 0 0 1px rgba(148,163,184,0.08)",
+                boxShadow: myPick && teamMatches(myPick.team, game.HomeTeam) ? "0 10px 18px rgba(37,99,235,0.18)" : "inset 0 1px 0 rgba(255,255,255,0.8)",
                 transform: myPick && teamMatches(myPick.team, game.HomeTeam) ? "translateY(-1px)" : "none",
               }}
             >
@@ -531,8 +535,8 @@ export default function Home() {
             bottom: 0,
             paddingTop: "8px",
             paddingBottom: "max(8px, env(safe-area-inset-bottom))",
-            background: "linear-gradient(to top, rgba(241,245,249,1) 65%, rgba(241,245,249,0.2) 100%)",
-            backdropFilter: "blur(8px)",
+            background: "linear-gradient(to top, rgba(245,247,250,1) 60%, rgba(245,247,250,0.18) 100%)",
+            backdropFilter: "blur(10px)",
             zIndex: 10,
           }}
         >
@@ -542,15 +546,15 @@ export default function Home() {
             style={{
               width: "100%",
               padding: "16px 18px",
-              borderRadius: "16px",
-              backgroundColor: readyToSubmit ? "#2563eb" : "#cbd5e1",
-              color: "#fff",
+              borderRadius: "18px",
+              background: readyToSubmit ? "linear-gradient(180deg, #1D4ED8 0%, #2563EB 100%)" : "#CBD5E1",
+              color: "#FFFFFF",
               border: "none",
               fontSize: "15px",
               fontWeight: "900",
               cursor: readyToSubmit ? "pointer" : "not-allowed",
               boxShadow: readyToSubmit
-                ? "0 10px 15px -3px rgba(37, 99, 235, 0.4)"
+                ? "0 12px 20px rgba(37, 99, 235, 0.28)"
                 : "none",
             }}
           >
