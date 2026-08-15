@@ -36,13 +36,16 @@ export async function POST(request: Request) {
     try {
       const userRow = await getUserByUsername(username);
       const email = String(userRow?.get('Email') ?? '').trim();
+      console.log('Picks email lookup', { username, emailExists: !!email, week: result.week });
+
       if (email) {
-        await sendPicksConfirmation({
+        const emailResult = await sendPicksConfirmation({
           email,
           username,
           week: String(result.week),
           picks: validPicks,
         });
+        console.log('Picks email result', emailResult);
       }
     } catch (emailError) {
       console.error('PICKS-EMAIL ERROR:', emailError);

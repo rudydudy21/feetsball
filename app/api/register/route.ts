@@ -40,10 +40,12 @@ export async function POST(req: Request) {
     }
 
     try {
-      await sendRegistrationConfirmation({
+      const emailResult = await sendRegistrationConfirmation({
         email: String(email ?? '').trim(),
         username: normalizedUsername,
       });
+
+      console.log('Registration email result', emailResult);
     } catch (emailError) {
       console.error('Registration email sending failed:', emailError);
     }

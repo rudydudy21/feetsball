@@ -17,22 +17,34 @@ export async function sendRegistrationConfirmation({
     return { success: false, skipped: true };
   }
 
-  const result = await resend.emails.send({
+  console.log('Attempting registration email send', {
     from: emailFrom,
-    to: [email],
-    subject: 'Welcome to Feetsball',
-    html: `
-      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #0f172a;">
-        <h2 style="margin-bottom: 12px;">Welcome to Feetsball, ${username}!</h2>
-        <p>Your registration is complete.</p>
-        <p>You can now log in with your username and 4-digit PIN.</p>
-        <p style="margin-top: 20px;">Good luck this week.</p>
-      </div>
-    `,
-    text: `Welcome to Feetsball, ${username}! Your registration is complete. You can now log in with your username and 4-digit PIN. Good luck this week.`,
+    to: email,
+    username,
   });
 
-  return { success: true, id: result.data?.id ?? null };
+  try {
+    const result = await resend.emails.send({
+      from: emailFrom,
+      to: [email],
+      subject: 'Welcome to Feetsball',
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #0f172a;">
+          <h2 style="margin-bottom: 12px;">Welcome to Feetsball, ${username}!</h2>
+          <p>Your registration is complete.</p>
+          <p>You can now log in with your username and 4-digit PIN.</p>
+          <p style="margin-top: 20px;">Good luck this week.</p>
+        </div>
+      `,
+      text: `Welcome to Feetsball, ${username}! Your registration is complete. You can now log in with your username and 4-digit PIN. Good luck this week.`,
+    });
+
+    console.log('Resend registration email result', result);
+    return { success: true, id: result.data?.id ?? null };
+  } catch (error) {
+    console.error('Resend registration email failed', error);
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
 }
 
 export async function sendPicksConfirmation({
@@ -55,22 +67,35 @@ export async function sendPicksConfirmation({
     .map((pick) => `<li><strong>${pick.team}</strong> — Wager: ${pick.wager} (${pick.gameId})</li>`)
     .join('');
 
-  const result = await resend.emails.send({
+  console.log('Attempting picks email send', {
     from: emailFrom,
-    to: [email],
-    subject: `Feetsball picks submitted for Week ${week}`,
-    html: `
-      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #0f172a;">
-        <h2 style="margin-bottom: 12px;">Picks locked in for ${username}</h2>
-        <p>Your picks for Week ${week} were submitted successfully.</p>
-        <ul style="padding-left: 20px; margin: 12px 0 20px;">
-          ${summaryHtml}
-        </ul>
-        <p>Good luck this week.</p>
-      </div>
-    `,
-    text: `Picks locked in for ${username} for Week ${week}.\n\n${picks.map((pick) => `${pick.team} — Wager: ${pick.wager} (${pick.gameId})`).join('\n')}`,
+    to: email,
+    username,
+    week,
   });
 
-  return { success: true, id: result.data?.id ?? null };
+  try {
+    const result = await resend.emails.send({
+      from: emailFrom,
+      to: [email],
+      subject: `Feetsball picks submitted for Week ${week}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #0f172a;">
+          <h2 style="margin-bottom: 12px;">Picks locked in for ${username}</h2>
+          <p>Your picks for Week ${week} were submitted successfully.</p>
+          <ul style="padding-left: 20px; margin: 12px 0 20px;">
+            ${summaryHtml}
+          </ul>
+          <p>Good luck this week.</p>
+        </div>
+      `,
+      text: `Picks locked in for ${username} for Week ${week}.\n\n${picks.map((pick) => `${pick.team} — Wager: ${pick.wager} (${pick.gameId})`).join('\n')}`,
+    });
+
+    console.log('Resend picks email result', result);
+    return { success: true, id: result.data?.id ?? null };
+  } catch (error) {
+    console.error('Resend picks email failed', error);
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
 }
