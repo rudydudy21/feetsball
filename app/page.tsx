@@ -429,11 +429,11 @@ export default function Home() {
 
           {/* WAGER SECTION */}
           {myPick && (
-            <div style={{ marginTop: "10px", paddingTop: "5px", borderTop: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: "10px", fontWeight: "bold", color: "#94a3b8" }}>
+            <div style={{ marginTop: "10px", paddingTop: "5px", borderTop: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}>
+              <span style={{ fontSize: "10px", fontWeight: "bold", color: "#94a3b8", minWidth: "52px" }}>
                 {locked ? "FINAL WAGER" : "WAGER"}
               </span>
-              <div style={{ display: "flex", gap: "8px" }}>
+              <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "8px", flex: 1 }}>
                 {[1, 2, 3, 4, 5].map((num) => (
                   <button
                     key={num}
@@ -444,6 +444,9 @@ export default function Home() {
                       cursor: locked ? "default" : "pointer",
                       backgroundColor: myPick.wager === num ? "#0f172a" : "#fff",
                       color: myPick.wager === num ? "#fff" : "#64748b",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
                     }}
                   >
                     {num}
