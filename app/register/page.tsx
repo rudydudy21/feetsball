@@ -60,7 +60,7 @@ export default function Register() {
               placeholder="4-DIGIT PIN"
               type="password"
               maxLength={4}
-              style={{ padding: '14px 12px', borderRadius: '12px', border: '2px solid #e2e8f0', textAlign: 'center', fontWeight: '800', fontSize: '14px' }}
+              style={{ padding: '14px 12px', borderRadius: '12px', border: '2px solid #e2e8f0', textAlign: 'left', fontWeight: '800', fontSize: '14px' }}
               onChange={(e) => setForm({ ...form, pin: e.target.value })}
             />
 
