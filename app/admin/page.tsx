@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+
+const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'feetsball-admin';
 
 const buttonBase = {
   border: 'none',
@@ -15,13 +17,28 @@ const buttonBase = {
 export default function AdminPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string>('');
+  const [passwordInput, setPasswordInput] = useState('');
+  const [authorized, setAuthorized] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const saved = localStorage.getItem('feetsball_admin_password');
+    if (saved === ADMIN_PASSWORD) {
+      setAuthorized(true);
+    }
+  }, []);
 
   const runAction = async (path: string, label: string) => {
     setBusy(label);
     setMessage('');
 
     try {
-      const res = await fetch(path, { method: 'POST' });
+      const res = await fetch(path, {
+        method: 'POST',
+        headers: {
+          'x-admin-password': ADMIN_PASSWORD,
+        },
+      });
       const data = await res.json();
 
       if (!res.ok || data.success === false) {
@@ -35,6 +52,50 @@ export default function AdminPage() {
       setBusy(null);
     }
   };
+
+  const unlock = () => {
+    const candidate = passwordInput.trim();
+    if (!candidate) {
+      setMessage('Enter the admin password to continue.');
+      return;
+    }
+
+    if (candidate === ADMIN_PASSWORD) {
+      localStorage.setItem('feetsball_admin_password', candidate);
+      setAuthorized(true);
+      setMessage('');
+      return;
+    }
+
+    setMessage('Incorrect admin password.');
+  };
+
+  if (!authorized) {
+    return (
+      <main style={{ minHeight: '100vh', background: '#f5f7fb', padding: '2rem 1rem', display: 'grid', placeItems: 'center' }}>
+        <div style={{ maxWidth: 420, width: '100%', background: '#fff', borderRadius: 18, padding: '1.5rem', boxShadow: '0 10px 30px rgba(15,23,42,0.06)' }}>
+          <h1 style={{ margin: '0 0 0.5rem', fontSize: 28 }}>Restricted</h1>
+          <p style={{ margin: '0 0 1rem', color: '#475569' }}>
+            This page is hidden and requires the admin password.
+          </p>
+          <input
+            type="password"
+            value={passwordInput}
+            onChange={(e) => setPasswordInput(e.target.value)}
+            placeholder="Admin password"
+            style={{ width: '100%', padding: '0.8rem 0.9rem', borderRadius: 10, border: '1px solid #cbd5e1', marginBottom: 12 }}
+          />
+          <button
+            onClick={unlock}
+            style={{ ...buttonBase, background: '#0f172a', width: '100%' }}
+          >
+            Unlock admin
+          </button>
+          {message ? <div style={{ marginTop: 12, color: '#b91c1c', fontSize: 14 }}>{message}</div> : null}
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main style={{ minHeight: '100vh', background: '#f5f7fb', padding: '2rem 1rem', color: '#111827' }}>

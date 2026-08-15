@@ -3,7 +3,18 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'feetsball-admin';
+
+const isAuthorized = (request: Request) => {
+  const headerKey = request.headers.get('x-admin-password') || '';
+  return headerKey === ADMIN_PASSWORD;
+};
+
+export async function GET(request: Request) {
+  if (!isAuthorized(request)) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const archivedCount = await archiveCurrentWeek();
     return NextResponse.json({ success: true, archivedCount });
@@ -13,6 +24,6 @@ export async function GET() {
   }
 }
 
-export async function POST() {
-  return GET();
+export async function POST(request: Request) {
+  return GET(request);
 }
