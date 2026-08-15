@@ -113,6 +113,9 @@ export async function submitUserPicks(
 
   for (const pick of picks) {
     if (!pick.gameId || !pick.team) continue;
+
+    const timestamp = new Date().toISOString();
+
     await sheet.addRow({
       Username: username,
       PIN: pin,
@@ -120,7 +123,8 @@ export async function submitUserPicks(
       GameID: pick.gameId,
       Selection: pick.team,
       Wager: Number(pick.wager) || 0,
-      SubmittedAt: new Date().toISOString(),
+      Timestamp: timestamp,
+      SubmittedAt: timestamp,
     });
   }
 

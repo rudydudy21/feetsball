@@ -218,20 +218,22 @@ export default function Home() {
       style={{
         backgroundColor: "#f1f5f9",
         minHeight: "100vh",
-        padding: "40px 20px",
+        padding: "max(12px, env(safe-area-inset-top)) 12px max(18px, env(safe-area-inset-bottom))",
         color: "#1e293b",
         fontFamily: "system-ui, sans-serif",
+        WebkitFontSmoothing: "antialiased",
       }}
       >
-      <div style={{ maxWidth: "600px", margin: "0 auto" }}>
-        <div style={{ textAlign: "center", marginBottom: "40px" }}>
+      <div style={{ maxWidth: "430px", margin: "0 auto", width: "100%", display: "flex", flexDirection: "column", gap: "10px" }}>
+        <div style={{ textAlign: "center" }}>
           <h1
             style={{
-              fontSize: "48px",
+              fontSize: "clamp(1.9rem, 7vw, 3rem)",
               fontWeight: "900",
               letterSpacing: "-2px",
               margin: "0",
               color: "#0f172a",
+              lineHeight: 1,
             }}
           >
             FEETSBALL
@@ -240,8 +242,9 @@ export default function Home() {
             style={{
               color: "#64748b",
               fontWeight: "bold",
-              fontSize: "12px",
-              letterSpacing: "4px",
+              fontSize: "10px",
+              letterSpacing: "3px",
+              margin: "5px 0 0",
             }}
           >
             2026 CHALLENGE
@@ -249,10 +252,10 @@ export default function Home() {
         </div>
 
         {/* Navigation Menu */}
-        <nav style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginBottom: '30px', fontSize: '12px', fontWeight: '900' }}>
-          <Link href="/" style={{ color: '#0f172a', textDecoration: 'none', borderBottom: '2px solid #2563eb' }}>PICKS</Link>
-          <Link href="/leaderboard/weekly" style={{ color: '#64748b', textDecoration: 'none' }}>WEEKLY</Link>
-          <Link href="/leaderboard/season" style={{ color: '#64748b', textDecoration: 'none' }}>SEASON</Link>
+        <nav style={{ display: 'flex', justifyContent: 'center', gap: '6px', fontSize: '11px', fontWeight: '900', background: '#e2e8f0', borderRadius: '999px', padding: '4px', alignSelf: 'center', width: 'fit-content' }}>
+          <Link href="/" style={{ color: '#0f172a', textDecoration: 'none', background: '#fff', borderRadius: '999px', padding: '7px 12px', boxShadow: '0 1px 2px rgba(15,23,42,0.08)' }}>PICKS</Link>
+          <Link href="/leaderboard/weekly" style={{ color: '#64748b', textDecoration: 'none', borderRadius: '999px', padding: '7px 12px' }}>WEEKLY</Link>
+          <Link href="/leaderboard/season" style={{ color: '#64748b', textDecoration: 'none', borderRadius: '999px', padding: '7px 12px' }}>SEASON</Link>
         </nav>
 
         {/* Credentials */}
@@ -261,18 +264,20 @@ export default function Home() {
             e.preventDefault();
             void handleLogin();
           }}
-          style={{ display: "flex", gap: "15px", marginBottom: "10px", alignItems: "stretch" }}
+          style={{ display: "flex", gap: "8px", marginBottom: "10px", alignItems: "stretch", width: "100%" }}
         >
           <input
             placeholder="Username"
             value={userInfo.username}
             style={{
               flex: 2,
-              padding: "15px",
+              minWidth: 0,
+              padding: "12px 10px",
               borderRadius: "12px",
               border: "2px solid #e2e8f0",
               outline: "none",
               fontWeight: "bold",
+              fontSize: "14px",
             }}
             onChange={(e) =>
               setUserInfo((prev) => ({ ...prev, username: normalizeUsernameInput(e.target.value) }))
@@ -285,11 +290,13 @@ export default function Home() {
             value={userInfo.pin}
             style={{
               flex: 1,
-              padding: "15px",
+              minWidth: 0,
+              padding: "12px 8px",
               borderRadius: "12px",
               border: "2px solid #e2e8f0",
               textAlign: "center",
               fontWeight: "bold",
+              fontSize: "14px",
             }}
             onChange={(e) => setUserInfo((prev) => ({ ...prev, pin: e.target.value }))}
           />
@@ -297,7 +304,7 @@ export default function Home() {
             type="submit"
             disabled={loginLoading || !userInfo.username || userInfo.pin.length !== 4}
             style={{
-              padding: "0 18px",
+              padding: "0 12px",
               borderRadius: "12px",
               border: "none",
               backgroundColor: !userInfo.username || userInfo.pin.length !== 4 ? "#cbd5e1" : "#0f172a",
@@ -305,6 +312,7 @@ export default function Home() {
               fontWeight: 900,
               cursor: !userInfo.username || userInfo.pin.length !== 4 ? "not-allowed" : "pointer",
               whiteSpace: "nowrap",
+              fontSize: "12px",
             }}
           >
             {loginLoading ? "LOADING..." : "LOGIN"}
@@ -312,7 +320,7 @@ export default function Home() {
         </form>
 
         {picks.length > 0 && (
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "20px" }}>
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <button
               type="button"
               onClick={clearLoadedPicks}
@@ -321,9 +329,10 @@ export default function Home() {
                 backgroundColor: "#fff",
                 color: "#0f172a",
                 borderRadius: "10px",
-                padding: "8px 12px",
+                padding: "7px 10px",
                 fontWeight: 800,
                 cursor: "pointer",
+                fontSize: "11px",
               }}
             >
               Clear picks
@@ -332,7 +341,7 @@ export default function Home() {
         )}
 
 {showLoadingState ? (
-  <div style={{ padding: "16px", textAlign: "center", color: "#64748b", fontWeight: "700" }}>
+  <div style={{ padding: "14px", textAlign: "center", color: "#64748b", fontWeight: "700", fontSize: "13px" }}>
     Loading slate...
   </div>
 ) : (
@@ -355,8 +364,8 @@ export default function Home() {
           key={game.GameID}
           style={{
             backgroundColor: "#fff",
-            borderRadius: "24px",
-            padding: "10px",
+            borderRadius: "20px",
+            padding: "8px 8px 10px",
             boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
             border: "1px solid #e2e8f0",
             opacity: locked ? 0.8 : 1,
@@ -376,43 +385,53 @@ export default function Home() {
               )}
             </div>
 
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "5px" }}>
+          <div style={{ display: "flex", alignItems: "stretch", justifyContent: "space-between", gap: "6px", minHeight: "108px" }}>
             
             {/* AWAY TEAM BUTTON */}
             <button
               onClick={() => !locked && handleSelect(game.GameID, game.AwayTeam)}
               disabled={locked}
               style={{
-                flex: 1, padding: "10px", borderRadius: "16px", border: "none", cursor: locked ? "default" : "pointer",
+                flex: 1,
+                minWidth: 0,
+                padding: "6px 4px 8px",
+                borderRadius: "12px",
+                border: "none",
+                cursor: locked ? "default" : "pointer",
                 transition: "0.2s",
                 backgroundColor: myPick && teamMatches(myPick.team, game.AwayTeam) ? "#2563eb" : "#f8fafc",
                 color: myPick && teamMatches(myPick.team, game.AwayTeam) ? "#fff" : "#1e293b",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+                boxShadow: myPick && teamMatches(myPick.team, game.AwayTeam) ? "inset 0 0 0 1px rgba(255,255,255,0.2), 0 4px 10px rgba(37,99,235,0.18)" : "inset 0 0 0 1px rgba(148,163,184,0.08)",
+                transform: myPick && teamMatches(myPick.team, game.AwayTeam) ? "translateY(-1px)" : "none",
               }}
             >
               <Image
                 src={game.AwayLogo}
                 alt={`${game.AwayTeam} logo`}
-                width={45}
-                height={45}
+                width={38}
+                height={38}
                 unoptimized
-                style={{ width: "45px", height: "45px", objectFit: "contain", marginBottom: "8px" }}
+                style={{ width: "38px", height: "38px", objectFit: "contain", marginBottom: "4px", alignSelf: "center" }}
               />
-              <div style={{ fontSize: "11px", fontWeight: "900", display: "flex", justifyContent: "center", alignItems: "center" }}>
+              <div style={{ fontSize: "11px", fontWeight: "900", display: "flex", justifyContent: "center", alignItems: "center", flexWrap: "wrap", lineHeight: 1.1, minHeight: "24px" }}>
                 {game.AwayRank && game.AwayRank !== "" && (
-                  <span style={{ color: myPick?.team === game.AwayTeam ? "#bfdbfe" : "#94a3b8", marginRight: "4px", fontSize: "10px" }}>
+                  <span style={{ color: myPick?.team === game.AwayTeam ? "#bfdbfe" : "#94a3b8", marginRight: "1px", fontSize: "9px" }}>
                     #{game.AwayRank}
                   </span>
                 )}
-                {game.AwayTeam?.toUpperCase()}
-                {hasValidSpread && (
-                  <span style={{ color: myPick?.team === game.AwayTeam ? "#bfdbfe" : "#94a3b8", marginLeft: "4px", fontSize: "10px", fontWeight: "bold" }}>
-                    ({(spreadVal * -1) > 0 ? '+' : ''}{spreadVal * -1})
-                  </span>
-                )}
+                <span>{game.AwayTeam?.toUpperCase()}</span>
               </div>
+              {hasValidSpread && (
+                <div style={{ color: myPick?.team === game.AwayTeam ? "#bfdbfe" : "#64748b", marginTop: "2px", fontSize: "10px", fontWeight: "800" }}>
+                  ({(spreadVal * -1) > 0 ? '+' : ''}{spreadVal * -1})
+                </div>
+              )}
             </button>
 
-            <div style={{ fontWeight: "900", color: "#cbd5e1", fontStyle: "italic", fontSize: '10px' }}>
+            <div style={{ fontWeight: "900", color: "#cbd5e1", fontStyle: "italic", fontSize: '10px', display: 'flex', alignItems: 'center' }}>
               VS
             </div>
 
@@ -421,43 +440,53 @@ export default function Home() {
               onClick={() => !locked && handleSelect(game.GameID, game.HomeTeam)}
               disabled={locked}
               style={{
-                flex: 1, padding: "10px", borderRadius: "16px", border: "none", cursor: locked ? "default" : "pointer",
+                flex: 1,
+                minWidth: 0,
+                padding: "6px 4px 8px",
+                borderRadius: "12px",
+                border: "none",
+                cursor: locked ? "default" : "pointer",
                 transition: "0.2s",
                 backgroundColor: myPick && teamMatches(myPick.team, game.HomeTeam) ? "#2563eb" : "#f8fafc",
                 color: myPick && teamMatches(myPick.team, game.HomeTeam) ? "#fff" : "#1e293b",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+                boxShadow: myPick && teamMatches(myPick.team, game.HomeTeam) ? "inset 0 0 0 1px rgba(255,255,255,0.2), 0 4px 10px rgba(37,99,235,0.18)" : "inset 0 0 0 1px rgba(148,163,184,0.08)",
+                transform: myPick && teamMatches(myPick.team, game.HomeTeam) ? "translateY(-1px)" : "none",
               }}
             >
               <Image
                 src={game.HomeLogo}
                 alt={`${game.HomeTeam} logo`}
-                width={45}
-                height={45}
+                width={38}
+                height={38}
                 unoptimized
-                style={{ width: "45px", height: "45px", objectFit: "contain", marginBottom: "8px" }}
+                style={{ width: "38px", height: "38px", objectFit: "contain", marginBottom: "4px", alignSelf: "center" }}
               />
-              <div style={{ fontSize: "11px", fontWeight: "900", display: "flex", justifyContent: "center", alignItems: "center" }}>
+              <div style={{ fontSize: "11px", fontWeight: "900", display: "flex", justifyContent: "center", alignItems: "center", flexWrap: "wrap", lineHeight: 1.1, minHeight: "24px" }}>
                 {game.HomeRank && game.HomeRank !== "" && (
-                  <span style={{ color: myPick?.team === game.HomeTeam ? "#bfdbfe" : "#94a3b8", marginRight: "4px", fontSize: "10px" }}>
+                  <span style={{ color: myPick?.team === game.HomeTeam ? "#bfdbfe" : "#94a3b8", marginRight: "1px", fontSize: "9px" }}>
                     #{game.HomeRank}
                   </span>
                 )}
-                {game.HomeTeam?.toUpperCase()}
-                {hasValidSpread && (
-                  <span style={{ color: myPick?.team === game.HomeTeam ? "#bfdbfe" : "#94a3b8", marginLeft: "4px", fontSize: "10px", fontWeight: "bold" }}>
-                    ({spreadVal > 0 ? '+' : ''}{spreadVal})
-                  </span>
-                )}
+                <span>{game.HomeTeam?.toUpperCase()}</span>
               </div>
+              {hasValidSpread && (
+                <div style={{ color: myPick?.team === game.HomeTeam ? "#bfdbfe" : "#64748b", marginTop: "2px", fontSize: "10px", fontWeight: "800" }}>
+                  ({spreadVal > 0 ? '+' : ''}{spreadVal})
+                </div>
+              )}
             </button>
           </div>
 
           {/* WAGER SECTION */}
           {myPick && (
-            <div style={{ marginTop: "10px", paddingTop: "5px", borderTop: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}>
-              <span style={{ fontSize: "10px", fontWeight: "bold", color: "#94a3b8", minWidth: "52px" }}>
+            <div style={{ marginTop: "8px", paddingTop: "5px", borderTop: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "6px" }}>
+              <span style={{ fontSize: "9px", fontWeight: "bold", color: "#94a3b8", minWidth: "42px" }}>
                 {locked ? "FINAL WAGER" : "WAGER"}
               </span>
-              <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "8px", flex: 1 }}>
+              <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "5px", flex: 1 }}>
                 {[1, 2, 3, 4, 5].map((num) => {
                   const isSelected = myPick.wager === num;
                   const isUsedElsewhere = picks.some(
@@ -470,7 +499,7 @@ export default function Home() {
                       disabled={locked || isUsedElsewhere}
                       onClick={() => handleWager(game.GameID, num)}
                       style={{
-                        width: "36px", height: "36px", borderRadius: "10px", border: "1px solid #e2e8f0", fontWeight: "bold",
+                        width: "26px", height: "26px", borderRadius: "8px", border: "1px solid #e2e8f0", fontWeight: "bold", fontSize: "10px",
                         cursor: locked || isUsedElsewhere ? "not-allowed" : "pointer",
                         backgroundColor: isSelected ? "#0f172a" : isUsedElsewhere ? "#e2e8f0" : "#fff",
                         color: isSelected ? "#fff" : isUsedElsewhere ? "#94a3b8" : "#64748b",
@@ -478,6 +507,8 @@ export default function Home() {
                         display: "inline-flex",
                         alignItems: "center",
                         justifyContent: "center",
+                        boxShadow: isSelected ? "0 4px 10px rgba(15,23,42,0.18)" : "none",
+                        transform: isSelected ? "translateY(-1px)" : "none",
                       }}
                     >
                       {num}
@@ -494,18 +525,28 @@ export default function Home() {
 )}
 
         {/* Submit Button Section */}
-        <div style={{ marginTop: "40px", paddingBottom: "60px" }}>
+        <div
+          style={{
+            position: "sticky",
+            bottom: 0,
+            paddingTop: "8px",
+            paddingBottom: "max(8px, env(safe-area-inset-bottom))",
+            background: "linear-gradient(to top, rgba(241,245,249,1) 65%, rgba(241,245,249,0.2) 100%)",
+            backdropFilter: "blur(8px)",
+            zIndex: 10,
+          }}
+        >
           <button
             disabled={!readyToSubmit || submitting}
             onClick={handleSubmit}
             style={{
               width: "100%",
-              padding: "24px",
-              borderRadius: "20px",
+              padding: "16px 18px",
+              borderRadius: "16px",
               backgroundColor: readyToSubmit ? "#2563eb" : "#cbd5e1",
               color: "#fff",
               border: "none",
-              fontSize: "18px",
+              fontSize: "15px",
               fontWeight: "900",
               cursor: readyToSubmit ? "pointer" : "not-allowed",
               boxShadow: readyToSubmit
