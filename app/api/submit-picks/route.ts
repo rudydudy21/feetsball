@@ -1,4 +1,5 @@
-import { submitUserPicks } from '@/lib/googleSheets';
+import { getUserByUsername, submitUserPicks } from '@/lib/googleSheets';
+import { sendPicksConfirmation } from '@/lib/email';
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
@@ -31,6 +32,22 @@ export async function POST(request: Request) {
     }
 
     const result = await submitUserPicks({ username, pin }, validPicks);
+
+    try {
+      const userRow = await getUserByUsername(username);
+      const email = String(userRow?.get('Email') ?? '').trim();
+      if (email) {
+        await sendPicksConfirmation({
+          email,
+          username,
+          week: String(result.week),
+          picks: validPicks,
+        });
+      }
+    } catch (emailError) {
+      console.error('PICKS-EMAIL ERROR:', emailError);
+    }
+
     return NextResponse.json(result);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Submission failed';

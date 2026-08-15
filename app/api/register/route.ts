@@ -1,4 +1,5 @@
 import { getLeagueMasterCode, isValidUsername, normalizeUsername, registerUser } from '@/lib/googleSheets';
+import { sendRegistrationConfirmation } from '@/lib/email';
 import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
@@ -36,6 +37,15 @@ export async function POST(req: Request) {
 
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 400 });
+    }
+
+    try {
+      await sendRegistrationConfirmation({
+        email: String(email ?? '').trim(),
+        username: normalizedUsername,
+      });
+    } catch (emailError) {
+      console.error('Registration email sending failed:', emailError);
     }
 
     return NextResponse.json({ success: true });
