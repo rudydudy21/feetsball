@@ -1,10 +1,11 @@
-import { getLeagueMasterCode, registerUser } from '@/lib/googleSheets';
+import { getLeagueMasterCode, isValidUsername, normalizeUsername, registerUser } from '@/lib/googleSheets';
 import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
   try {
     const { username, pin, inviteCode, email } = await req.json();
     const masterCode = await getLeagueMasterCode();
+    const normalizedUsername = normalizeUsername(username);
 
     if (String(inviteCode ?? '').trim().toUpperCase() !== masterCode) {
       return NextResponse.json(
@@ -16,8 +17,19 @@ export async function POST(req: Request) {
       );
     }
 
+    if (!isValidUsername(normalizedUsername)) {
+      return NextResponse.json(
+        { error: 'Username must be 3-20 characters using letters, numbers, underscores, or hyphens.' },
+        { status: 400 },
+      );
+    }
+
+    if (String(pin ?? '').trim().length !== 4) {
+      return NextResponse.json({ error: 'PIN must be exactly 4 digits.' }, { status: 400 });
+    }
+
     const result = await registerUser({
-      username: String(username ?? '').trim(),
+      username: normalizedUsername,
       email: String(email ?? '').trim(),
       pin: String(pin ?? '').trim(),
     });

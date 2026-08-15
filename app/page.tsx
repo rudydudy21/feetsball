@@ -30,6 +30,9 @@ const normalizeGameId = (value: unknown): string =>
     .replace(/\.0$/, '')
     .replace(/^0+(?=\d)/, '');
 
+const normalizeUsernameInput = (value: string) =>
+  value.trim().toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9_-]/g, '');
+
 const teamMatches = (savedTeam: string, slateTeam: string) =>
   normalizeTeamName(savedTeam) === normalizeTeamName(slateTeam);
 
@@ -107,6 +110,7 @@ export default function Home() {
   const [userInfo, setUserInfo] = useState({ username: "", pin: "" });
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loginLoading, setLoginLoading] = useState(false);
 
   useEffect(() => {
     fetch("/api/get-slate")
@@ -140,6 +144,44 @@ export default function Home() {
 
   const clearLoadedPicks = () => setPicks([]);
 
+  const handleLogin = async () => {
+    const username = normalizeUsernameInput(userInfo.username);
+    const pin = userInfo.pin.trim();
+
+    if (!username || pin.length !== 4) {
+      alert('Please enter a valid username and 4-digit PIN.');
+      return;
+    }
+
+    setLoginLoading(true);
+
+    try {
+      const res = await fetch('/api/get-my-picks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, pin }),
+      });
+
+      if (!res.ok) {
+        setPicks([]);
+        alert('❌ Could not load your picks. Check your username and PIN.');
+        return;
+      }
+
+      const payload = await res.json();
+      const normalized = normalizeExistingPicks(payload);
+      setPicks(normalized);
+      if (normalized.length === 0) {
+        alert('No saved picks found for that username/PIN.');
+      }
+    } catch {
+      setPicks([]);
+      alert('❌ Could not reach the server.');
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
@@ -162,48 +204,6 @@ export default function Home() {
       setSubmitting(false);
     }
   };
-
-  useEffect(() => {
-    let isActive = true;
-
-    const fetchExistingPicks = async () => {
-      const { username, pin } = userInfo;
-
-      if (!username || pin.length !== 4) {
-        if (isActive) setPicks([]);
-        return;
-      }
-
-      try {
-        const res = await fetch('/api/get-my-picks', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, pin }),
-        });
-
-        if (!isActive) return;
-
-        if (!res.ok) {
-          setPicks([]);
-          return;
-        }
-
-        const payload = await res.json();
-        const normalized = normalizeExistingPicks(payload);
-        console.log('GET /api/get-my-picks payload:', payload);
-        console.log('Normalized picks:', normalized);
-        setPicks(normalized);
-      } catch {
-        if (isActive) setPicks([]);
-      }
-    };
-
-    fetchExistingPicks();
-
-    return () => {
-      isActive = false;
-    };
-  }, [userInfo.username, userInfo.pin]);
 
   // Validation
   const readyToSubmit =
@@ -256,9 +256,16 @@ export default function Home() {
         </nav>
 
         {/* Credentials */}
-        <div style={{ display: "flex", gap: "15px", marginBottom: "10px" }}>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void handleLogin();
+          }}
+          style={{ display: "flex", gap: "15px", marginBottom: "10px", alignItems: "stretch" }}
+        >
           <input
             placeholder="Username"
+            value={userInfo.username}
             style={{
               flex: 2,
               padding: "15px",
@@ -268,13 +275,14 @@ export default function Home() {
               fontWeight: "bold",
             }}
             onChange={(e) =>
-              setUserInfo((prev) => ({ ...prev, username: e.target.value }))
+              setUserInfo((prev) => ({ ...prev, username: normalizeUsernameInput(e.target.value) }))
             }
           />
           <input
             placeholder="PIN"
             type="password"
             maxLength={4}
+            value={userInfo.pin}
             style={{
               flex: 1,
               padding: "15px",
@@ -285,7 +293,23 @@ export default function Home() {
             }}
             onChange={(e) => setUserInfo((prev) => ({ ...prev, pin: e.target.value }))}
           />
-        </div>
+          <button
+            type="submit"
+            disabled={loginLoading || !userInfo.username || userInfo.pin.length !== 4}
+            style={{
+              padding: "0 18px",
+              borderRadius: "12px",
+              border: "none",
+              backgroundColor: !userInfo.username || userInfo.pin.length !== 4 ? "#cbd5e1" : "#0f172a",
+              color: "#fff",
+              fontWeight: 900,
+              cursor: !userInfo.username || userInfo.pin.length !== 4 ? "not-allowed" : "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {loginLoading ? "LOADING..." : "LOGIN"}
+          </button>
+        </form>
 
         {picks.length > 0 && (
           <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "20px" }}>
@@ -434,24 +458,32 @@ export default function Home() {
                 {locked ? "FINAL WAGER" : "WAGER"}
               </span>
               <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "8px", flex: 1 }}>
-                {[1, 2, 3, 4, 5].map((num) => (
-                  <button
-                    key={num}
-                    disabled={locked || picks.some((p) => p.wager === num && p.gameId !== game.GameID)}
-                    onClick={() => handleWager(game.GameID, num)}
-                    style={{
-                      width: "36px", height: "36px", borderRadius: "10px", border: "1px solid #e2e8f0", fontWeight: "bold",
-                      cursor: locked ? "default" : "pointer",
-                      backgroundColor: myPick.wager === num ? "#0f172a" : "#fff",
-                      color: myPick.wager === num ? "#fff" : "#64748b",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    {num}
-                  </button>
-                ))}
+                {[1, 2, 3, 4, 5].map((num) => {
+                  const isSelected = myPick.wager === num;
+                  const isUsedElsewhere = picks.some(
+                    (p) => normalizeGameId(p.gameId) !== normalizeGameId(game.GameID) && p.wager === num
+                  );
+
+                  return (
+                    <button
+                      key={num}
+                      disabled={locked || isUsedElsewhere}
+                      onClick={() => handleWager(game.GameID, num)}
+                      style={{
+                        width: "36px", height: "36px", borderRadius: "10px", border: "1px solid #e2e8f0", fontWeight: "bold",
+                        cursor: locked || isUsedElsewhere ? "not-allowed" : "pointer",
+                        backgroundColor: isSelected ? "#0f172a" : isUsedElsewhere ? "#e2e8f0" : "#fff",
+                        color: isSelected ? "#fff" : isUsedElsewhere ? "#94a3b8" : "#64748b",
+                        opacity: locked ? 0.7 : isUsedElsewhere ? 0.6 : 1,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      {num}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}

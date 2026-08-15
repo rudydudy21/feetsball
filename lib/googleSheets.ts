@@ -16,6 +16,18 @@ export const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID || '', jwt)
 
 const asString = (value: unknown) => String(value ?? '').trim();
 
+export function normalizeUsername(value: unknown) {
+  return asString(value)
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[^a-z0-9_-]/g, '');
+}
+
+export function isValidUsername(value: unknown) {
+  const normalized = normalizeUsername(value);
+  return /^[a-z0-9][a-z0-9_-]{2,19}$/.test(normalized);
+}
+
 export async function getSheetByTitle(title: string) {
   await doc.loadInfo();
   const sheet = doc.sheetsByTitle[title];
@@ -62,11 +74,11 @@ export async function getWeeklySlate() {
 export async function getUserPicks(username: string, pin: string) {
   const sheet = await getSheetByTitle('Picks');
   const rows = await sheet.getRows();
-  const normalizedUsername = username.trim().toLowerCase();
+  const normalizedUsername = normalizeUsername(username);
 
   return rows
     .filter((row) => {
-      const rowUsername = asString(row.get('Username')).toLowerCase();
+      const rowUsername = normalizeUsername(row.get('Username'));
       const rowPin = asString(row.get('PIN'));
       return rowUsername === normalizedUsername && rowPin === pin.trim();
     })
@@ -83,18 +95,18 @@ export async function submitUserPicks(
   userInfo: { username: string; pin: string },
   picks: Array<{ gameId: string; team: string; wager: number }>,
 ) {
-  const username = userInfo.username.trim();
+  const username = normalizeUsername(userInfo.username);
   const pin = userInfo.pin.trim();
   const week = await getCurrentWeek();
   const sheet = await getSheetByTitle('Picks');
   const rows = await sheet.getRows();
 
   for (const row of rows) {
-    const rowUsername = asString(row.get('Username')).toLowerCase();
+    const rowUsername = normalizeUsername(row.get('Username'));
     const rowPin = asString(row.get('PIN'));
     const rowWeek = asString(row.get('Week'));
 
-    if (rowUsername === username.toLowerCase() && rowPin === pin && rowWeek === week) {
+    if (rowUsername === username && rowPin === pin && rowWeek === week) {
       await row.delete();
     }
   }
@@ -209,8 +221,17 @@ export async function getUserByUsername(username: string) {
 export async function registerUser(user: { username: string; email: string; pin: string }) {
   const usersSheet = await getSheetByTitle('Users');
   const rows = await usersSheet.getRows();
+  const normalizedUsername = normalizeUsername(user.username);
+
+  if (!isValidUsername(normalizedUsername)) {
+    return {
+      success: false,
+      error: 'Username must be 3-20 characters using letters, numbers, underscores, or hyphens.',
+    };
+  }
+
   const usernameExists = rows.some(
-    (row) => asString(row.get('Username')).toLowerCase() === user.username.trim().toLowerCase(),
+    (row) => normalizeUsername(row.get('Username')) === normalizedUsername,
   );
 
   if (usernameExists) {
@@ -218,7 +239,7 @@ export async function registerUser(user: { username: string; email: string; pin:
   }
 
   await usersSheet.addRow({
-    Username: user.username.trim(),
+    Username: normalizedUsername,
     Email: user.email.trim().toLowerCase(),
     PIN: user.pin.trim(),
     Created: new Date().toLocaleString(),
