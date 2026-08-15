@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/admin/update-live-scores",
+      "schedule": "*/30 * * * *"
+    }
+  ]
+}

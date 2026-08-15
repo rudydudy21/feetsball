@@ -16,6 +16,28 @@ export const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID || '', jwt)
 
 const asString = (value: unknown) => String(value ?? '').trim();
 
+export const CONFIG = {
+  CFBD_KEY: process.env.CFBD_KEY || '',
+  ODDS_KEY: process.env.ODDS_KEY || '',
+  YEAR: Number(process.env.YEAR || new Date().getFullYear()),
+};
+
+const parseSpreadValue = (value: unknown) => {
+  const raw = asString(value).trim();
+  if (!raw || raw === 'PUSH') return 0;
+  const cleaned = raw.replace(/[^0-9.+-]/g, '');
+  const numeric = Number(cleaned);
+  return Number.isFinite(numeric) ? numeric : 0;
+};
+
+const normalizeTeamKey = (value: unknown) =>
+  asString(value)
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
 export function normalizeUsername(value: unknown) {
   return asString(value)
     .toLowerCase()
@@ -152,11 +174,15 @@ export async function getWeeklyResultsForWeek(week: string) {
     if (!username || !gameId || !selection) continue;
 
     const game = slateByGameId.get(gameId);
-    const winner = game && asString(game.Status).toLowerCase() === 'final'
+    const isFinal = game && asString(game.Status).toLowerCase() === 'final';
+    const winner = isFinal
       ? (Number(game.AwayPoints) > Number(game.HomePoints) ? asString(game.AwayTeam) : asString(game.HomeTeam))
       : null;
 
-    const outcome = winner && selection === winner ? 'correct' : 'incorrect';
+    let outcome: 'correct' | 'incorrect' | 'pending' = 'pending';
+    if (winner) {
+      outcome = selection === winner ? 'correct' : 'incorrect';
+    }
 
     if (!byUser.has(username)) {
       byUser.set(username, { username, picks: {}, total: 0 });
@@ -250,4 +276,311 @@ export async function registerUser(user: { username: string; email: string; pin:
   });
 
   return { success: true };
+}
+
+export async function fetchTop25Games(week: string | number) {
+  const year = CONFIG.YEAR || new Date().getFullYear();
+  const url = `https://api.collegefootballdata.com/games?year=${year}&week=${week}&seasonType=regular`;
+
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${CONFIG.CFBD_KEY}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`CFBD games request failed: ${response.status} ${response.statusText}`);
+  }
+
+  const allGames = (await response.json()) as Array<Record<string, any>>;
+  const rankMap: Record<string, number> = {};
+  let filteredGames = allGames;
+
+  try {
+    const rankUrl = `https://api.collegefootballdata.com/rankings?year=${year}&week=${week}`;
+    const rankResponse = await fetch(rankUrl, {
+      headers: {
+        Authorization: `Bearer ${CONFIG.CFBD_KEY}`,
+      },
+    });
+
+    if (rankResponse.ok) {
+      const rankData = (await rankResponse.json()) as Array<Record<string, any>>;
+      const poll = rankData[0]?.polls?.find(
+        (entry: Record<string, any>) =>
+          entry?.poll === 'AP Top 25' || entry?.poll === 'Playoff Committee Rankings',
+      );
+
+      if (poll) {
+        poll.ranks.forEach((rank: Record<string, any>) => {
+          if (rank?.school) {
+            rankMap[rank.school] = Number(rank.rank || 0);
+          }
+        });
+
+        const topTeams = Object.keys(rankMap);
+        filteredGames = allGames.filter(
+          (game) =>
+            topTeams.includes(game.homeTeam || game.home_team || '') ||
+            topTeams.includes(game.awayTeam || game.away_team || ''),
+        );
+      }
+    }
+  } catch (error) {
+    console.warn('Rankings fetch failed. Showing all games.', error);
+  }
+
+  return { games: filteredGames, rankMap };
+}
+
+export async function populateWeeklySlate(
+  games: Array<Record<string, any>>,
+  rankMap: Record<string, number> = {},
+  spreadMap: Record<string, string | number> = {},
+) {
+  if (!games || !Array.isArray(games) || games.length === 0) {
+    return { games: 0, created: false };
+  }
+
+  let sheet = doc.sheetsByTitle['Weekly_Slate'];
+  if (!sheet) {
+    sheet = await doc.addSheet({ title: 'Weekly_Slate' });
+  }
+
+  await sheet.clear();
+
+  const headers = [
+    'GameID',
+    'AwayRank',
+    'AwayTeam',
+    'AwayID',
+    'AwayLogo',
+    'HomeRank',
+    'HomeTeam',
+    'HomeID',
+    'HomeLogo',
+    'Spread',
+    'Kickoff_Time',
+    'AwayPoints',
+    'HomePoints',
+    'Status',
+  ];
+
+  await sheet.setHeaderRow(headers);
+
+  const rows = games.map((game) => {
+    const aId = game.AwayID || game.awayId || game.away_id || '';
+    const hId = game.HomeID || game.homeId || game.home_id || '';
+    const aTeam = game.AwayTeam || game.awayTeam || game.away_team || 'Unknown';
+    const hTeam = game.HomeTeam || game.homeTeam || game.home_team || 'Unknown';
+    const spread = game.Spread !== undefined ? game.Spread : 'CHECK SPREAD';
+    const kickoff = game.Kickoff_Time || game.kickoffTime || game.startDate || game.start_date || '';
+
+    const nameOverrides: Record<string, string> = {
+      Florida: 'Florida Gators',
+      Michigan: 'Michigan Wolverines',
+      'New Mexico': 'New Mexico Lobos',
+      Louisiana: 'Louisiana Ragin Cajuns',
+      Texas: 'Texas Longhorns',
+      Miami: 'Miami Hurricanes',
+    };
+
+    let lockedSpread: string | number = spread;
+
+    if (nameOverrides[hTeam]) {
+      lockedSpread = spreadMap[nameOverrides[hTeam]] ?? 'CHECK SPREAD';
+    } else if (spreadMap[hTeam] !== undefined) {
+      lockedSpread = spreadMap[hTeam];
+    } else {
+      const hTeamLower = normalizeTeamKey(hTeam);
+      for (const apiName of Object.keys(spreadMap)) {
+        if (normalizeTeamKey(apiName) === hTeamLower || normalizeTeamKey(apiName).startsWith(`${hTeamLower} `)) {
+          lockedSpread = spreadMap[apiName] ?? 'CHECK SPREAD';
+          break;
+        }
+      }
+    }
+
+    if (lockedSpread === null || lockedSpread === undefined || lockedSpread === '') {
+      lockedSpread = 'CHECK SPREAD';
+    }
+
+    return {
+      GameID: game.id,
+      AwayRank: rankMap[aTeam] || '',
+      AwayTeam: aTeam,
+      AwayID: aId,
+      AwayLogo: `https://raw.githubusercontent.com/CFBD/cfb-web/master/public/logos/${aId}.png`,
+      HomeRank: rankMap[hTeam] || '',
+      HomeTeam: hTeam,
+      HomeID: hId,
+      HomeLogo: `https://raw.githubusercontent.com/CFBD/cfb-web/master/public/logos/${hId}.png`,
+      Spread: lockedSpread,
+      Kickoff_Time: kickoff,
+      AwayPoints: game.awayPoints ?? 0,
+      HomePoints: game.homePoints ?? 0,
+      Status: game.completed ? 'Final' : 'Upcoming',
+    };
+  });
+
+  await sheet.addRows(rows);
+  return { games: rows.length, created: true };
+}
+
+export async function runWeeklySetup() {
+  const week = await getCurrentWeek();
+  const data = await fetchTop25Games(week);
+  const spreadMap = await getConsensusSpreads();
+  const result = await populateWeeklySlate(data.games, data.rankMap, spreadMap);
+  return { week, ...result };
+}
+
+export async function archiveCurrentWeek() {
+  const currentWeek = await getCurrentWeek();
+  const slateSheet = await getSheetByTitle('Weekly_Slate');
+  const rows = await slateSheet.getRows();
+
+  let archiveSheet = doc.sheetsByTitle['Master_Archive'];
+  if (!archiveSheet) {
+    archiveSheet = await doc.addSheet({ title: 'Master_Archive' });
+  }
+
+  const archiveRows: Array<Array<any>> = [];
+
+  rows.forEach((row) => {
+    const status = asString(row.get('Status')).toLowerCase();
+    if (status !== 'final') return;
+
+    const awayPoints = Number(row.get('AwayPoints') ?? 0);
+    const homePoints = Number(row.get('HomePoints') ?? 0);
+    const spread = parseSpreadValue(row.get('Spread'));
+    const gameId = asString(row.get('GameID'));
+    const awayTeam = asString(row.get('AwayTeam'));
+    const homeTeam = asString(row.get('HomeTeam'));
+
+    const margin = (homePoints - awayPoints) + spread;
+    let winner = '';
+    if (margin > 0) winner = homeTeam;
+    else if (margin < 0) winner = awayTeam;
+    else winner = 'PUSH';
+
+    archiveRows.push([
+      currentWeek,
+      gameId,
+      awayTeam,
+      homeTeam,
+      row.get('Spread'),
+      awayPoints,
+      homePoints,
+      'Final',
+      winner,
+    ]);
+  });
+
+  if (archiveRows.length > 0) {
+    await archiveSheet.addRows(archiveRows.map((row) => ({ values: row })) as any);
+  }
+
+  return archiveRows.length;
+}
+
+export async function updateLiveScores() {
+  const settingsSheet = await getSheetByTitle('Settings');
+  const year = Number(await getSettingsValue('B1')) || CONFIG.YEAR || new Date().getFullYear();
+  const week = await getCurrentWeek();
+
+  const url = `https://api.collegefootballdata.com/games?year=${year}&week=${week}&seasonType=regular`;
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${CONFIG.CFBD_KEY}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`CFBD scores request failed: ${response.status} ${response.statusText}`);
+  }
+
+  const apiGames = (await response.json()) as Array<Record<string, any>>;
+  const scoreMap: Record<string, { awayPoints: number; homePoints: number; completed: boolean }> = {};
+
+  apiGames.forEach((game) => {
+    const gameId = game.id;
+    scoreMap[gameId] = {
+      awayPoints: Number(game.away_points ?? game.awayPoints ?? 0),
+      homePoints: Number(game.home_points ?? game.homePoints ?? 0),
+      completed: Boolean(game.completed),
+    };
+  });
+
+  const sheet = await getSheetByTitle('Weekly_Slate');
+  const rows = await sheet.getRows();
+
+  for (const row of rows) {
+    const gameId = asString(row.get('GameID'));
+    const liveData = scoreMap[gameId];
+    if (!liveData) continue;
+
+    row.set('AwayPoints', liveData.awayPoints);
+    row.set('HomePoints', liveData.homePoints);
+    row.set('Status', liveData.completed ? 'Final' : 'Live');
+    await row.save();
+  }
+
+  return rows.length;
+}
+
+export async function getConsensusSpreads() {
+  if (!CONFIG.ODDS_KEY) {
+    throw new Error('ODDS_KEY is not configured.');
+  }
+
+  const sport = 'americanfootball_ncaaf';
+  const url = `https://api.the-odds-api.com/v4/sports/${sport}/odds/?apiKey=${CONFIG.ODDS_KEY}&regions=us&markets=spreads&oddsFormat=american`;
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(`Odds API request failed: ${response.status} ${response.statusText}`);
+  }
+
+  const data = (await response.json()) as Array<Record<string, any>>;
+  const spreadMap: Record<string, string | number> = {};
+
+  data.forEach((game) => {
+    const bookmaker = game?.bookmakers?.find((entry: Record<string, any>) => entry.key === 'draftkings') || game?.bookmakers?.[0];
+    if (!bookmaker) return;
+
+    const marketData = bookmaker.markets?.find((market: Record<string, any>) => market.key === 'spreads');
+    if (!marketData) return;
+
+    const homeOutcome = marketData.outcomes?.find((outcome: Record<string, any>) => outcome.name === game.home_team);
+    if (homeOutcome) {
+      spreadMap[game.home_team] = homeOutcome.point;
+    }
+  });
+
+  return spreadMap;
+}
+
+export async function exportOddsAPITeamNames() {
+  if (!CONFIG.ODDS_KEY) {
+    throw new Error('ODDS_KEY is not configured.');
+  }
+
+  const sport = 'americanfootball_ncaaf';
+  const url = `https://api.the-odds-api.com/v4/sports/${sport}/odds/?apiKey=${CONFIG.ODDS_KEY}&regions=us&markets=spreads`;
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(`Odds API team list request failed: ${response.status} ${response.statusText}`);
+  }
+
+  const data = (await response.json()) as Array<Record<string, any>>;
+  const teamNames = new Set<string>();
+
+  data.forEach((game) => {
+    if (game.home_team) teamNames.add(game.home_team);
+    if (game.away_team) teamNames.add(game.away_team);
+  });
+
+  return Array.from(teamNames).sort();
 }
