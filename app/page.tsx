@@ -568,14 +568,14 @@ export default function Home() {
                   return (
                     <button
                       key={num}
-                      disabled={gameLocked || isTakenByAnotherPick}
+                      disabled={gameLocked}
                       onClick={() => handleWager(game.GameID, num)}
                       style={{
                         width: "26px", height: "26px", borderRadius: "8px", border: "1px solid #e2e8f0", fontWeight: "bold", fontSize: "10px",
-                        cursor: gameLocked || isTakenByAnotherPick ? "not-allowed" : "pointer",
+                        cursor: gameLocked ? "not-allowed" : "pointer",
                         backgroundColor: isSelected ? "#0f172a" : isTakenByAnotherPick ? "#e2e8f0" : "#fff",
                         color: isSelected ? "#fff" : isTakenByAnotherPick ? "#94a3b8" : "#64748b",
-                        opacity: gameLocked ? 0.7 : isTakenByAnotherPick ? 0.55 : 1,
+                        opacity: gameLocked ? 0.7 : isTakenByAnotherPick ? 0.7 : 1,
                         display: "inline-flex",
                         alignItems: "center",
                         justifyContent: "center",
