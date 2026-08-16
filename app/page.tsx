@@ -149,9 +149,20 @@ export default function Home() {
   };
 
   const handleWager = (gameId: string, wager: number) => {
-    setPicks(picks.map((p) => (
-      normalizeGameId(p.gameId) === normalizeGameId(gameId) ? { ...p, wager } : p
-    )));
+    setPicks((currentPicks) => {
+      const nextPicks = currentPicks.map((pick) => (
+        normalizeGameId(pick.gameId) === normalizeGameId(gameId) ? { ...pick, wager } : pick
+      ));
+
+      const currentTarget = nextPicks.find((pick) => normalizeGameId(pick.gameId) === normalizeGameId(gameId));
+      if (!currentTarget) return currentPicks;
+
+      return nextPicks.map((pick) => {
+        const isSamePick = normalizeGameId(pick.gameId) === normalizeGameId(gameId);
+        const isDuplicateWager = !isSamePick && pick.wager === wager && pick.wager > 0;
+        return isDuplicateWager ? { ...pick, wager: 0 } : pick;
+      });
+    });
   };
 
   const clearLoadedPicks = () => setPicks([]);
@@ -518,21 +529,18 @@ export default function Home() {
               <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "5px", flex: 1 }}>
                 {[1, 2, 3, 4, 5].map((num) => {
                   const isSelected = myPick.wager === num;
-                  const isUsedElsewhere = picks.some(
-                    (p) => normalizeGameId(p.gameId) !== normalizeGameId(game.GameID) && p.wager === num
-                  );
 
                   return (
                     <button
                       key={num}
-                      disabled={gameLocked || isUsedElsewhere}
+                      disabled={gameLocked}
                       onClick={() => handleWager(game.GameID, num)}
                       style={{
                         width: "26px", height: "26px", borderRadius: "8px", border: "1px solid #e2e8f0", fontWeight: "bold", fontSize: "10px",
-                        cursor: gameLocked || isUsedElsewhere ? "not-allowed" : "pointer",
-                        backgroundColor: isSelected ? "#0f172a" : isUsedElsewhere ? "#e2e8f0" : "#fff",
-                        color: isSelected ? "#fff" : isUsedElsewhere ? "#94a3b8" : "#64748b",
-                        opacity: gameLocked ? 0.7 : isUsedElsewhere ? 0.6 : 1,
+                        cursor: gameLocked ? "not-allowed" : "pointer",
+                        backgroundColor: isSelected ? "#0f172a" : "#fff",
+                        color: isSelected ? "#fff" : "#64748b",
+                        opacity: gameLocked ? 0.7 : 1,
                         display: "inline-flex",
                         alignItems: "center",
                         justifyContent: "center",
