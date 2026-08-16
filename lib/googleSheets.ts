@@ -135,38 +135,24 @@ export async function getWeeklySlate() {
 }
 
 export async function getUserPicks(username: string, pin: string) {
-  const sheet = await getSheetByTitle('Picks');
-  const rows = await sheet.getRows();
   const normalizedUsername = normalizeUsername(username);
   const trimmedPin = pin.trim();
 
-  console.log('DEBUG getUserPicks', {
-    requestedUsername: username,
-    normalizedUsername,
-    requestedPin: trimmedPin,
-    rowCount: rows.length,
-  });
-
-  const matches = rows.filter((row) => {
-    const rowUsername = normalizeUsername(row.get('Username'));
-    const rowPin = asString(row.get('PIN'));
-    const match = rowUsername === normalizedUsername && rowPin === trimmedPin;
-
-    if (match) {
-      console.log('DEBUG matching row', {
-        rowUsername,
-        rowPin,
-        week: asString(row.get('Week')),
-        gameId: asString(row.get('GameID')),
-        selection: asString(row.get('Selection')),
-        wager: asString(row.get('Wager')),
-      });
+  const preferredRows = await (async () => {
+    try {
+      const sheet = await getSheetByTitle('Picks');
+      return await sheet.getRows();
+    } catch {
+      return [] as any[];
     }
+  })();
 
-    return match;
-  });
-
-  return matches
+  const preferredMatches = preferredRows
+    .filter((row) => {
+      const rowUsername = normalizeUsername(row.get('Username'));
+      const rowPin = asString(row.get('PIN'));
+      return rowUsername === normalizedUsername && rowPin === trimmedPin;
+    })
     .map((row) => ({
       gameId: asString(row.get('GameID')),
       team: asString(row.get('Selection')),
@@ -174,6 +160,31 @@ export async function getUserPicks(username: string, pin: string) {
       week: asString(row.get('Week')),
     }))
     .filter((pick) => pick.gameId && pick.team);
+
+  if (preferredMatches.length > 0) {
+    return preferredMatches;
+  }
+
+  try {
+    const legacySheet = await getSheetByTitle('User_Picks');
+    const legacyRows = await legacySheet.getRows();
+
+    return legacyRows
+      .filter((row) => {
+        const rowUsername = normalizeUsername(row.get('Username'));
+        const rowPin = asString(row.get('PIN'));
+        return rowUsername === normalizedUsername && rowPin === trimmedPin;
+      })
+      .map((row) => ({
+        gameId: asString(row.get('GameID')),
+        team: asString(row.get('Team') || row.get('Selection')),
+        wager: Number(row.get('Wager') ?? 0),
+        week: asString(row.get('Week')),
+      }))
+      .filter((pick) => pick.gameId && pick.team);
+  } catch {
+    return [];
+  }
 }
 
 export async function submitUserPicks(
@@ -197,6 +208,12 @@ export async function submitUserPicks(
   }
 
   const timestamp = new Date().toISOString();
+
+  const headerValues = sheet.headerValues ?? [];
+  if (!headerValues.includes('PIN')) {
+    const updatedHeaders = [...headerValues, 'PIN'];
+    await sheet.setHeaderRow(updatedHeaders);
+  }
 
   for (const pick of picks) {
     if (!pick.gameId || !pick.team) continue;
