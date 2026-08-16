@@ -164,22 +164,29 @@ export default function Home() {
 
   const handleWager = (gameId: string, wager: number) => {
     setPicks((currentPicks) => {
-      const targetExists = currentPicks.some((pick) => matchesGame(pick, gameId));
-      if (!targetExists) {
+      const targetIndex = currentPicks.findIndex((pick) => matchesGame(pick, gameId));
+      if (targetIndex === -1) {
         return currentPicks;
       }
 
-      let nextPicks = currentPicks.map((pick) =>
-        matchesGame(pick, gameId) ? { ...pick, wager } : pick,
-      );
+      const targetPick = currentPicks[targetIndex];
+      if (targetPick.wager === wager) {
+        return currentPicks.map((pick, index) =>
+          index === targetIndex ? { ...pick, wager: 0 } : pick,
+        );
+      }
 
-      nextPicks = nextPicks.map((pick) => {
-        const isSamePick = matchesGame(pick, gameId);
-        const hasDuplicateWager = !isSamePick && pick.wager === wager && pick.wager > 0;
-        return hasDuplicateWager ? { ...pick, wager: 0 } : pick;
+      return currentPicks.map((pick, index) => {
+        if (index === targetIndex) {
+          return { ...pick, wager };
+        }
+
+        if (pick.wager === wager && pick.wager > 0) {
+          return { ...pick, wager: 0 };
+        }
+
+        return pick;
       });
-
-      return nextPicks;
     });
   };
 
@@ -234,6 +241,12 @@ export default function Home() {
       return;
     }
 
+    const wagerValues = picks.map((pick) => pick.wager);
+    if (new Set(wagerValues).size !== wagerValues.length) {
+      alert('Each wager value can only be used once across your picks.');
+      return;
+    }
+
     setSubmitting(true);
     try {
       const res = await fetch("/api/submit-picks", {
@@ -258,10 +271,13 @@ export default function Home() {
 
   // Validation
   const submissionClosed = isPastSaturdayNoonET();
+  const usedWagers = new Set(picks.filter((p) => p.wager > 0).map((p) => p.wager));
+  const validWagerSet = picks.length === new Set(picks.map((p) => p.wager)).size;
   const readyToSubmit =
     picks.length >= 1 &&
     picks.length <= 5 &&
     picks.every((p) => p.wager > 0) &&
+    validWagerSet &&
     userInfo.username.length > 0 &&
     userInfo.pin.length === 4 &&
     !submissionClosed;
@@ -547,18 +563,19 @@ export default function Home() {
               <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "5px", flex: 1 }}>
                 {[1, 2, 3, 4, 5].map((num) => {
                   const isSelected = myPick.wager === num;
+                  const isTakenByAnotherPick = usedWagers.has(num) && !isSelected;
 
                   return (
                     <button
                       key={num}
-                      disabled={gameLocked}
+                      disabled={gameLocked || isTakenByAnotherPick}
                       onClick={() => handleWager(game.GameID, num)}
                       style={{
                         width: "26px", height: "26px", borderRadius: "8px", border: "1px solid #e2e8f0", fontWeight: "bold", fontSize: "10px",
-                        cursor: gameLocked ? "not-allowed" : "pointer",
-                        backgroundColor: isSelected ? "#0f172a" : "#fff",
-                        color: isSelected ? "#fff" : "#64748b",
-                        opacity: gameLocked ? 0.7 : 1,
+                        cursor: gameLocked || isTakenByAnotherPick ? "not-allowed" : "pointer",
+                        backgroundColor: isSelected ? "#0f172a" : isTakenByAnotherPick ? "#e2e8f0" : "#fff",
+                        color: isSelected ? "#fff" : isTakenByAnotherPick ? "#94a3b8" : "#64748b",
+                        opacity: gameLocked ? 0.7 : isTakenByAnotherPick ? 0.55 : 1,
                         display: "inline-flex",
                         alignItems: "center",
                         justifyContent: "center",
