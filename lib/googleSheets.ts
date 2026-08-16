@@ -99,6 +99,21 @@ export async function getCurrentWeek() {
   return asString(currentWeek);
 }
 
+export async function getCurrentYear() {
+  const currentYear = await getSettingsValue('B4');
+  const parsedYear = Number(currentYear ?? '');
+
+  if (Number.isFinite(parsedYear) && parsedYear > 0) {
+    return parsedYear;
+  }
+
+  if (Number.isFinite(CONFIG.YEAR) && CONFIG.YEAR > 0) {
+    return CONFIG.YEAR;
+  }
+
+  return new Date().getFullYear();
+}
+
 export async function getWeeklySlate() {
   const sheet = await getSheetByTitle('Weekly_Slate');
   const rows = await sheet.getRows();
@@ -123,13 +138,35 @@ export async function getUserPicks(username: string, pin: string) {
   const sheet = await getSheetByTitle('Picks');
   const rows = await sheet.getRows();
   const normalizedUsername = normalizeUsername(username);
+  const trimmedPin = pin.trim();
 
-  return rows
-    .filter((row) => {
-      const rowUsername = normalizeUsername(row.get('Username'));
-      const rowPin = asString(row.get('PIN'));
-      return rowUsername === normalizedUsername && rowPin === pin.trim();
-    })
+  console.log('DEBUG getUserPicks', {
+    requestedUsername: username,
+    normalizedUsername,
+    requestedPin: trimmedPin,
+    rowCount: rows.length,
+  });
+
+  const matches = rows.filter((row) => {
+    const rowUsername = normalizeUsername(row.get('Username'));
+    const rowPin = asString(row.get('PIN'));
+    const match = rowUsername === normalizedUsername && rowPin === trimmedPin;
+
+    if (match) {
+      console.log('DEBUG matching row', {
+        rowUsername,
+        rowPin,
+        week: asString(row.get('Week')),
+        gameId: asString(row.get('GameID')),
+        selection: asString(row.get('Selection')),
+        wager: asString(row.get('Wager')),
+      });
+    }
+
+    return match;
+  });
+
+  return matches
     .map((row) => ({
       gameId: asString(row.get('GameID')),
       team: asString(row.get('Selection')),
@@ -353,7 +390,7 @@ export async function registerUser(user: { username: string; email: string; pin:
 }
 
 export async function fetchTop25Games(week: string | number) {
-  const year = CONFIG.YEAR || new Date().getFullYear();
+  const year = await getCurrentYear();
   const url = `https://api.collegefootballdata.com/games?year=${year}&week=${week}&seasonType=regular`;
 
   const response = await fetch(url, {
@@ -368,7 +405,6 @@ export async function fetchTop25Games(week: string | number) {
 
   const allGames = (await response.json()) as Array<Record<string, any>>;
   const rankMap: Record<string, number> = {};
-  let filteredGames = allGames;
 
   try {
     const rankUrl = `https://api.collegefootballdata.com/rankings?year=${year}&week=${week}`;
@@ -378,33 +414,40 @@ export async function fetchTop25Games(week: string | number) {
       },
     });
 
-    if (rankResponse.ok) {
-      const rankData = (await rankResponse.json()) as Array<Record<string, any>>;
-      const poll = rankData[0]?.polls?.find(
-        (entry: Record<string, any>) =>
-          entry?.poll === 'AP Top 25' || entry?.poll === 'Playoff Committee Rankings',
-      );
-
-      if (poll) {
-        poll.ranks.forEach((rank: Record<string, any>) => {
-          if (rank?.school) {
-            rankMap[rank.school] = Number(rank.rank || 0);
-          }
-        });
-
-        const topTeams = Object.keys(rankMap);
-        filteredGames = allGames.filter(
-          (game) =>
-            topTeams.includes(game.homeTeam || game.home_team || '') ||
-            topTeams.includes(game.awayTeam || game.away_team || ''),
-        );
-      }
+    if (!rankResponse.ok) {
+      console.warn(`AP rankings fetch failed for year ${year}, week ${week}: ${rankResponse.status} ${rankResponse.statusText}. No games loaded.`);
+      return { games: [], rankMap: {} };
     }
-  } catch (error) {
-    console.warn('Rankings fetch failed. Showing all games.', error);
-  }
 
-  return { games: filteredGames, rankMap };
+    const rankData = (await rankResponse.json()) as Array<Record<string, any>>;
+    const poll = rankData[0]?.polls?.find(
+      (entry: Record<string, any>) =>
+        entry?.poll === 'AP Top 25' || entry?.poll === 'Playoff Committee Rankings',
+    );
+
+    if (!poll || !Array.isArray(poll.ranks) || poll.ranks.length === 0) {
+      console.warn(`No AP Top 25 rankings available for year ${year}, week ${week}. No games loaded.`);
+      return { games: [], rankMap: {} };
+    }
+
+    poll.ranks.forEach((rank: Record<string, any>) => {
+      if (rank?.school) {
+        rankMap[rank.school] = Number(rank.rank || 0);
+      }
+    });
+
+    const topTeams = Object.keys(rankMap);
+    const filteredGames = allGames.filter(
+      (game) =>
+        topTeams.includes(game.homeTeam || game.home_team || '') ||
+        topTeams.includes(game.awayTeam || game.away_team || ''),
+    );
+
+    return { games: filteredGames, rankMap };
+  } catch (error) {
+    console.warn(`Rankings fetch failed for year ${year}, week ${week}. No games loaded.`, error);
+    return { games: [], rankMap: {} };
+  }
 }
 
 export async function populateWeeklySlate(
