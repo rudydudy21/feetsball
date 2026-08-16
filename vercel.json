@@ -3,7 +3,7 @@
   "crons": [
     {
       "path": "/api/admin/update-live-scores",
-      "schedule": "*/30 * * * *"
+      "schedule": "0 3 * * *"
     }
   ]
 }
