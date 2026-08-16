@@ -30,6 +30,32 @@ const parseSpreadValue = (value: unknown) => {
   return Number.isFinite(numeric) ? numeric : 0;
 };
 
+const getSpreadResultForPick = (game: { AwayTeam?: string; HomeTeam?: string; Spread?: string | number; AwayPoints?: number; HomePoints?: number }, selectedTeam: string) => {
+  if (!game) return null;
+
+  const selectedKey = normalizeTeamKey(selectedTeam);
+  const awayKey = normalizeTeamKey(game.AwayTeam);
+  const homeKey = normalizeTeamKey(game.HomeTeam);
+  if (!selectedKey || (!awayKey && !homeKey)) return null;
+
+  const spread = parseSpreadValue(game.Spread);
+  const awayPoints = Number(game.AwayPoints ?? 0);
+  const homePoints = Number(game.HomePoints ?? 0);
+
+  const selectedSideMargin = selectedKey === awayKey
+    ? awayPoints - homePoints
+    : selectedKey === homeKey
+      ? homePoints - awayPoints
+      : 0;
+
+  const selectedSideSpread = selectedKey === awayKey ? -spread : spread;
+  const adjustedMargin = selectedSideMargin - selectedSideSpread;
+
+  if (adjustedMargin > 0) return 'correct';
+  if (adjustedMargin === 0) return 'push';
+  return 'incorrect';
+};
+
 const normalizeTeamKey = (value: unknown) =>
   asString(value)
     .toLowerCase()
@@ -133,10 +159,10 @@ export async function submitUserPicks(
     }
   }
 
+  const timestamp = new Date().toISOString();
+
   for (const pick of picks) {
     if (!pick.gameId || !pick.team) continue;
-
-    const timestamp = new Date().toISOString();
 
     await sheet.addRow({
       Username: username,
@@ -147,6 +173,42 @@ export async function submitUserPicks(
       Wager: Number(pick.wager) || 0,
       Timestamp: timestamp,
       SubmittedAt: timestamp,
+    });
+  }
+
+  let logSheet = doc.sheetsByTitle['Submission_Log'];
+  if (!logSheet) {
+    logSheet = await doc.addSheet({ title: 'Submission_Log' });
+    await logSheet.setHeaderRow([
+      'SubmissionTimestamp',
+      'Username',
+      'PIN',
+      'Week',
+      'GameID',
+      'Selection',
+      'Wager',
+      'SubmittedAt',
+      'SubmissionType',
+      'Status',
+      'Notes',
+    ]);
+  }
+
+  for (const pick of picks) {
+    if (!pick.gameId || !pick.team) continue;
+
+    await logSheet.addRow({
+      SubmissionTimestamp: timestamp,
+      Username: username,
+      PIN: pin,
+      Week: week,
+      GameID: pick.gameId,
+      Selection: pick.team,
+      Wager: Number(pick.wager) || 0,
+      SubmittedAt: timestamp,
+      SubmissionType: 'Picks Submit',
+      Status: 'Accepted',
+      Notes: 'User submitted current week selection',
     });
   }
 
@@ -175,13 +237,23 @@ export async function getWeeklyResultsForWeek(week: string) {
 
     const game = slateByGameId.get(gameId);
     const isFinal = game && asString(game.Status).toLowerCase() === 'final';
-    const winner = isFinal
-      ? (Number(game.AwayPoints) > Number(game.HomePoints) ? asString(game.AwayTeam) : asString(game.HomeTeam))
-      : null;
+    const numericWager = Number.isFinite(wager) ? Math.max(1, Math.round(wager)) : 1;
 
-    let outcome: 'correct' | 'incorrect' | 'pending' = 'pending';
-    if (winner) {
-      outcome = selection === winner ? 'correct' : 'incorrect';
+    let outcome: 'correct' | 'incorrect' | 'push' | 'pending' = 'pending';
+    let delta = 0;
+
+    if (isFinal && game) {
+      const spreadResult = getSpreadResultForPick(game, selection);
+      if (spreadResult === 'correct') {
+        outcome = 'correct';
+        delta = numericWager;
+      } else if (spreadResult === 'push') {
+        outcome = 'push';
+        delta = 0;
+      } else if (spreadResult === 'incorrect') {
+        outcome = 'incorrect';
+        delta = -numericWager;
+      }
     }
 
     if (!byUser.has(username)) {
@@ -189,12 +261,8 @@ export async function getWeeklyResultsForWeek(week: string) {
     }
 
     const userEntry = byUser.get(username)!;
-    const numericWager = Number.isFinite(wager) ? Math.max(1, Math.round(wager)) : 1;
-
     userEntry.picks[numericWager] = { selection, outcome };
-    if (outcome === 'correct') {
-      userEntry.total += numericWager;
-    }
+    userEntry.total += delta;
   }
 
   return Array.from(byUser.values()).sort((a, b) => b.total - a.total);
@@ -220,16 +288,22 @@ export async function getSeasonResults() {
     if (!username || !week || !gameId || !selection) continue;
 
     const game = slateByGameId.get(gameId);
-    const winner = game && asString(game.Status).toLowerCase() === 'final'
-      ? (Number(game.AwayPoints) > Number(game.HomePoints) ? asString(game.AwayTeam) : asString(game.HomeTeam))
-      : null;
+    const points = game && asString(game.Status).toLowerCase() === 'final'
+      ? (() => {
+          const spreadResult = getSpreadResultForPick(game, selection);
+          const numericWager = Number.isFinite(wager) ? Math.max(1, Math.round(wager)) : 1;
+          if (spreadResult === 'correct') return numericWager;
+          if (spreadResult === 'push') return 0;
+          if (spreadResult === 'incorrect') return -numericWager;
+          return 0;
+        })()
+      : 0;
 
     if (!userTotals.has(username)) {
       userTotals.set(username, { username, weeks: {}, total: 0 });
     }
 
     const entry = userTotals.get(username)!;
-    const points = winner && selection === winner ? Math.max(1, Math.round(wager)) : 0;
     entry.weeks[week] = (entry.weeks[week] ?? 0) + points;
     entry.total += points;
   }
@@ -486,7 +560,7 @@ export async function archiveCurrentWeek() {
 
 export async function updateLiveScores() {
   const settingsSheet = await getSheetByTitle('Settings');
-  const year = Number(await getSettingsValue('B1')) || CONFIG.YEAR || new Date().getFullYear();
+  const year = Number(await getSettingsValue('B4')) || CONFIG.YEAR || new Date().getFullYear();
   const week = await getCurrentWeek();
 
   const url = `https://api.collegefootballdata.com/games?year=${year}&week=${week}&seasonType=regular`;

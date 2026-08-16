@@ -1,6 +1,20 @@
-import { getUserByUsername, submitUserPicks } from '@/lib/googleSheets';
+import { getUserByUsername, getWeeklySlate, submitUserPicks } from '@/lib/googleSheets';
 import { sendPicksConfirmation } from '@/lib/email';
 import { NextResponse } from 'next/server';
+
+const getEasternNow = () => new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+
+const isPastSaturdayNoonET = () => {
+  const now = getEasternNow();
+  return now.getDay() === 6 && now.getHours() >= 12;
+};
+
+const isGameStarted = (kickoff: string | undefined) => {
+  if (!kickoff) return false;
+  const kickoffDate = new Date(kickoff);
+  if (Number.isNaN(kickoffDate.getTime())) return false;
+  return kickoffDate <= new Date();
+};
 
 export async function POST(request: Request) {
   try {
@@ -27,8 +41,22 @@ export async function POST(request: Request) {
         wager: Number(pick.wager) || 0,
       }));
 
-    if (!username || pin.length !== 4 || validPicks.length === 0) {
-      return NextResponse.json({ error: 'Invalid submission payload' }, { status: 400 });
+    if (!username || pin.length !== 4 || validPicks.length < 1 || validPicks.length > 5) {
+      return NextResponse.json({ error: 'Please select between 1 and 5 games before submitting.' }, { status: 400 });
+    }
+
+    if (isPastSaturdayNoonET()) {
+      return NextResponse.json({ error: 'Submissions are closed after noon ET on Saturday.' }, { status: 400 });
+    }
+
+    const slate = await getWeeklySlate();
+    const startedGames = validPicks.filter((pick) => {
+      const game = slate.find((entry) => String(entry.GameID) === String(pick.gameId));
+      return game && isGameStarted(game.Kickoff_Time);
+    });
+
+    if (startedGames.length > 0) {
+      return NextResponse.json({ error: 'One or more selected games have already started and cannot be changed.' }, { status: 400 });
     }
 
     const result = await submitUserPicks({ username, pin }, validPicks);

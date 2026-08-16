@@ -41,6 +41,20 @@ const matchesGame = (pick: PickEntry, gameId: string, awayTeam: string, homeTeam
   teamMatches(pick.team, awayTeam) ||
   teamMatches(pick.team, homeTeam);
 
+const getEasternNow = () => new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+
+const isPastSaturdayNoonET = () => {
+  const now = getEasternNow();
+  return now.getDay() === 6 && now.getHours() >= 12;
+};
+
+const isGameStarted = (kickoff: string | undefined) => {
+  if (!kickoff) return false;
+  const kickoffDate = new Date(kickoff);
+  if (Number.isNaN(kickoffDate.getTime())) return false;
+  return kickoffDate <= new Date();
+};
+
 const normalizeExistingPicks = (value: unknown): PickEntry[] => {
   const unwrapArray = (candidate: unknown): unknown[] => {
     if (Array.isArray(candidate)) return candidate;
@@ -183,6 +197,16 @@ export default function Home() {
   };
 
   const handleSubmit = async () => {
+    if (isPastSaturdayNoonET()) {
+      alert('⏰ Submissions closed after noon ET on Saturday.');
+      return;
+    }
+
+    if (picks.length < 1 || picks.length > 5) {
+      alert('Please select between 1 and 5 games before locking in your picks.');
+      return;
+    }
+
     setSubmitting(true);
     try {
       const res = await fetch("/api/submit-picks", {
@@ -206,11 +230,14 @@ export default function Home() {
   };
 
   // Validation
+  const submissionClosed = isPastSaturdayNoonET();
   const readyToSubmit =
-    picks.length === 5 &&
+    picks.length >= 1 &&
+    picks.length <= 5 &&
     picks.every((p) => p.wager > 0) &&
     userInfo.username.length > 0 &&
-    userInfo.pin.length === 4;
+    userInfo.pin.length === 4 &&
+    !submissionClosed;
   const showLoadingState = loading && games.length === 0;
 
   return (
@@ -319,7 +346,7 @@ export default function Home() {
               boxShadow: !userInfo.username || userInfo.pin.length !== 4 ? "none" : "0 8px 16px rgba(15,23,42,0.15)",
             }}
           >
-            {loginLoading ? "LOADING..." : "LOGIN"}
+            {loginLoading ? "LOADING..." : "LOAD MY PICKS"}
           </button>
         </form>
 
@@ -352,7 +379,7 @@ export default function Home() {
   <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
     {games.map((game: SlateGame) => {
       const myPick = picks.find((p) => matchesGame(p, game.GameID, game.AwayTeam, game.HomeTeam));
-      const locked = false; // Unlocked for testing
+      const gameLocked = isGameStarted(game.Kickoff_Time) || submissionClosed;
 
       // Format the Kickoff Time safely
       const kickoff = new Date(game.Kickoff_Time);
@@ -372,7 +399,7 @@ export default function Home() {
             padding: "8px 8px 10px",
             boxShadow: "0 10px 24px rgba(15, 23, 42, 0.05), inset 0 1px 0 rgba(255,255,255,0.8)",
             border: "1px solid rgba(148,163,184,0.18)",
-            opacity: locked ? 0.8 : 1,
+            opacity: gameLocked ? 0.8 : 1,
             position: 'relative'
           }}
         >
@@ -382,7 +409,7 @@ export default function Home() {
               fontSize: '9px', fontWeight: '900', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px'
             }}>
               <span style={{ color: '#64748b' }}>{formattedTime}</span>
-              {locked && (
+              {gameLocked && (
                 <span style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '3px' }}>
                   • <span style={{ fontSize: '10px' }}>🔒</span> LOCKED
                 </span>
@@ -393,15 +420,15 @@ export default function Home() {
             
             {/* AWAY TEAM BUTTON */}
             <button
-              onClick={() => !locked && handleSelect(game.GameID, game.AwayTeam)}
-              disabled={locked}
+              onClick={() => !gameLocked && handleSelect(game.GameID, game.AwayTeam)}
+              disabled={gameLocked}
               style={{
                 flex: 1,
                 minWidth: 0,
                 padding: "8px 4px 10px",
                 borderRadius: "18px",
                 border: "1px solid rgba(148,163,184,0.10)",
-                cursor: locked ? "default" : "pointer",
+                cursor: gameLocked ? "default" : "pointer",
                 transition: "0.2s",
                 background: myPick && teamMatches(myPick.team, game.AwayTeam) ? "linear-gradient(180deg, #1D4ED8 0%, #2563EB 100%)" : "linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%)",
                 color: myPick && teamMatches(myPick.team, game.AwayTeam) ? "#FFFFFF" : "#0F172A",
@@ -441,15 +468,15 @@ export default function Home() {
 
             {/* HOME TEAM BUTTON */}
             <button
-              onClick={() => !locked && handleSelect(game.GameID, game.HomeTeam)}
-              disabled={locked}
+              onClick={() => !gameLocked && handleSelect(game.GameID, game.HomeTeam)}
+              disabled={gameLocked}
               style={{
                 flex: 1,
                 minWidth: 0,
                 padding: "8px 4px 10px",
                 borderRadius: "18px",
                 border: "1px solid rgba(148,163,184,0.10)",
-                cursor: locked ? "default" : "pointer",
+                cursor: gameLocked ? "default" : "pointer",
                 transition: "0.2s",
                 background: myPick && teamMatches(myPick.team, game.HomeTeam) ? "linear-gradient(180deg, #1D4ED8 0%, #2563EB 100%)" : "linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%)",
                 color: myPick && teamMatches(myPick.team, game.HomeTeam) ? "#FFFFFF" : "#0F172A",
@@ -488,7 +515,7 @@ export default function Home() {
           {myPick && (
             <div style={{ marginTop: "8px", paddingTop: "5px", borderTop: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "6px" }}>
               <span style={{ fontSize: "9px", fontWeight: "bold", color: "#94a3b8", minWidth: "42px" }}>
-                {locked ? "FINAL WAGER" : "WAGER"}
+                {gameLocked ? "FINAL WAGER" : "WAGER"}
               </span>
               <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "5px", flex: 1 }}>
                 {[1, 2, 3, 4, 5].map((num) => {
@@ -500,14 +527,14 @@ export default function Home() {
                   return (
                     <button
                       key={num}
-                      disabled={locked || isUsedElsewhere}
+                      disabled={gameLocked || isUsedElsewhere}
                       onClick={() => handleWager(game.GameID, num)}
                       style={{
                         width: "26px", height: "26px", borderRadius: "8px", border: "1px solid #e2e8f0", fontWeight: "bold", fontSize: "10px",
-                        cursor: locked || isUsedElsewhere ? "not-allowed" : "pointer",
+                        cursor: gameLocked || isUsedElsewhere ? "not-allowed" : "pointer",
                         backgroundColor: isSelected ? "#0f172a" : isUsedElsewhere ? "#e2e8f0" : "#fff",
                         color: isSelected ? "#fff" : isUsedElsewhere ? "#94a3b8" : "#64748b",
-                        opacity: locked ? 0.7 : isUsedElsewhere ? 0.6 : 1,
+                        opacity: gameLocked ? 0.7 : isUsedElsewhere ? 0.6 : 1,
                         display: "inline-flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -540,6 +567,18 @@ export default function Home() {
             zIndex: 10,
           }}
         >
+          {picks.length > 0 && picks.length < 5 && !submissionClosed && (
+            <div style={{ marginBottom: 8, textAlign: 'center', color: '#b45309', fontSize: 12, fontWeight: 800 }}>
+              Warning: you have selected {picks.length} of 5 picks.
+            </div>
+          )}
+
+          {submissionClosed && (
+            <div style={{ marginBottom: 8, textAlign: 'center', color: '#b91c1c', fontSize: 12, fontWeight: 800 }}>
+              Submissions are closed after noon ET on Saturday.
+            </div>
+          )}
+
           <button
             disabled={!readyToSubmit || submitting}
             onClick={handleSubmit}
@@ -560,9 +599,7 @@ export default function Home() {
           >
             {submitting
               ? "SENDING..."
-              : `LOCK IN 5 PICKS (${
-                  picks.filter((p) => p.wager > 0).length
-                }/5)`}
+              : `LOCK IN PICKS (${picks.filter((p) => p.wager > 0).length}/5)`}
           </button>
         </div>
       </div>
