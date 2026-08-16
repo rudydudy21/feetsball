@@ -141,11 +141,24 @@ export default function Home() {
     const existing = picks.find((p) => matchesGame(p, gameId));
     if (existing && teamMatches(existing.team, team)) {
       setPicks(picks.filter((p) => !matchesGame(p, gameId)));
-    } else if (existing) {
-      setPicks(picks.map((p) => (matchesGame(p, gameId) ? { ...p, team } : p)));
-    } else if (picks.length < 5) {
-      setPicks([...picks, { gameId, team, wager: 0 }]);
+      return;
     }
+
+    if (existing) {
+      setPicks(picks.map((p) => (matchesGame(p, gameId) ? { ...p, team } : p)));
+      return;
+    }
+
+    if (picks.length >= 5) {
+      setPicks((currentPicks) => {
+        const next = [...currentPicks];
+        next.shift();
+        return [...next, { gameId, team, wager: 0 }];
+      });
+      return;
+    }
+
+    setPicks([...picks, { gameId, team, wager: 0 }]);
   };
 
   const handleWager = (gameId: string, wager: number) => {
