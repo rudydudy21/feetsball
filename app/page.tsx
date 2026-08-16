@@ -138,43 +138,48 @@ export default function Home() {
   }, []);
 
   const handleSelect = (gameId: string, team: string) => {
-    const existing = picks.find((p) => matchesGame(p, gameId));
-    if (existing && teamMatches(existing.team, team)) {
-      setPicks(picks.filter((p) => !matchesGame(p, gameId)));
-      return;
-    }
+    setPicks((currentPicks) => {
+      const existingIndex = currentPicks.findIndex((p) => matchesGame(p, gameId));
 
-    if (existing) {
-      setPicks(picks.map((p) => (matchesGame(p, gameId) ? { ...p, team } : p)));
-      return;
-    }
+      if (existingIndex >= 0) {
+        const existing = currentPicks[existingIndex];
+        if (teamMatches(existing.team, team)) {
+          return currentPicks.filter((p) => !matchesGame(p, gameId));
+        }
 
-    if (picks.length >= 5) {
-      setPicks((currentPicks) => {
+        return currentPicks.map((p, index) =>
+          index === existingIndex ? { ...p, team, wager: p.wager || 0 } : p,
+        );
+      }
+
+      if (currentPicks.length >= 5) {
         const next = [...currentPicks];
         next.shift();
         return [...next, { gameId, team, wager: 0 }];
-      });
-      return;
-    }
+      }
 
-    setPicks([...picks, { gameId, team, wager: 0 }]);
+      return [...currentPicks, { gameId, team, wager: 0 }];
+    });
   };
 
   const handleWager = (gameId: string, wager: number) => {
     setPicks((currentPicks) => {
-      const nextPicks = currentPicks.map((pick) => (
-        normalizeGameId(pick.gameId) === normalizeGameId(gameId) ? { ...pick, wager } : pick
-      ));
+      const targetExists = currentPicks.some((pick) => matchesGame(pick, gameId));
+      if (!targetExists) {
+        return currentPicks;
+      }
 
-      const currentTarget = nextPicks.find((pick) => normalizeGameId(pick.gameId) === normalizeGameId(gameId));
-      if (!currentTarget) return currentPicks;
+      let nextPicks = currentPicks.map((pick) =>
+        matchesGame(pick, gameId) ? { ...pick, wager } : pick,
+      );
 
-      return nextPicks.map((pick) => {
-        const isSamePick = normalizeGameId(pick.gameId) === normalizeGameId(gameId);
-        const isDuplicateWager = !isSamePick && pick.wager === wager && pick.wager > 0;
-        return isDuplicateWager ? { ...pick, wager: 0 } : pick;
+      nextPicks = nextPicks.map((pick) => {
+        const isSamePick = matchesGame(pick, gameId);
+        const hasDuplicateWager = !isSamePick && pick.wager === wager && pick.wager > 0;
+        return hasDuplicateWager ? { ...pick, wager: 0 } : pick;
       });
+
+      return nextPicks;
     });
   };
 
