@@ -36,10 +36,8 @@ const normalizeUsernameInput = (value: string) =>
 const teamMatches = (savedTeam: string, slateTeam: string) =>
   normalizeTeamName(savedTeam) === normalizeTeamName(slateTeam);
 
-const matchesGame = (pick: PickEntry, gameId: string, awayTeam: string, homeTeam: string) =>
-  normalizeGameId(pick.gameId) === normalizeGameId(gameId) ||
-  teamMatches(pick.team, awayTeam) ||
-  teamMatches(pick.team, homeTeam);
+const matchesGame = (pick: PickEntry, gameId: string) =>
+  normalizeGameId(pick.gameId) === normalizeGameId(gameId);
 
 const getEasternNow = () => new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
 
@@ -140,11 +138,11 @@ export default function Home() {
   }, []);
 
   const handleSelect = (gameId: string, team: string) => {
-    const existing = picks.find((p) => matchesGame(p, gameId, team, team));
+    const existing = picks.find((p) => matchesGame(p, gameId));
     if (existing && teamMatches(existing.team, team)) {
-      setPicks(picks.filter((p) => !matchesGame(p, gameId, team, team)));
+      setPicks(picks.filter((p) => !matchesGame(p, gameId)));
     } else if (existing) {
-      setPicks(picks.map((p) => (matchesGame(p, gameId, team, team) ? { ...p, team } : p)));
+      setPicks(picks.map((p) => (matchesGame(p, gameId) ? { ...p, team } : p)));
     } else if (picks.length < 5) {
       setPicks([...picks, { gameId, team, wager: 0 }]);
     }
@@ -378,7 +376,7 @@ export default function Home() {
 ) : (
   <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
     {games.map((game: SlateGame) => {
-      const myPick = picks.find((p) => matchesGame(p, game.GameID, game.AwayTeam, game.HomeTeam));
+      const myPick = picks.find((p) => matchesGame(p, game.GameID));
       const gameLocked = isGameStarted(game.Kickoff_Time) || submissionClosed;
 
       // Format the Kickoff Time safely
