@@ -139,26 +139,27 @@ export default function Home() {
 
   const handleSelect = (gameId: string, team: string) => {
     setPicks((currentPicks) => {
-      const existingIndex = currentPicks.findIndex((p) => matchesGame(p, gameId));
+      const deduped = currentPicks.filter((pick, index, arr) => arr.findIndex((candidate) => matchesGame(candidate, pick.gameId)) === index);
+      const existingIndex = deduped.findIndex((p) => matchesGame(p, gameId));
 
       if (existingIndex >= 0) {
-        const existing = currentPicks[existingIndex];
+        const existing = deduped[existingIndex];
         if (teamMatches(existing.team, team)) {
-          return currentPicks.filter((p) => !matchesGame(p, gameId));
+          return deduped.filter((p) => !matchesGame(p, gameId));
         }
 
-        return currentPicks.map((p, index) =>
+        return deduped.map((p, index) =>
           index === existingIndex ? { ...p, team, wager: p.wager || 0 } : p,
         );
       }
 
-      if (currentPicks.length >= 5) {
-        const next = [...currentPicks];
+      if (deduped.length >= 5) {
+        const next = [...deduped];
         next.shift();
         return [...next, { gameId, team, wager: 0 }];
       }
 
-      return [...currentPicks, { gameId, team, wager: 0 }];
+      return [...deduped, { gameId, team, wager: 0 }];
     });
   };
 
@@ -176,17 +177,17 @@ export default function Home() {
         );
       }
 
-      return currentPicks.map((pick, index) => {
-        if (index === targetIndex) {
-          return { ...pick, wager };
-        }
+      const isWagerTakenByAnotherPick = currentPicks.some(
+        (pick, index) => index !== targetIndex && pick.wager === wager && pick.wager > 0,
+      );
 
-        if (pick.wager === wager && pick.wager > 0) {
-          return { ...pick, wager: 0 };
-        }
+      if (isWagerTakenByAnotherPick) {
+        return currentPicks;
+      }
 
-        return pick;
-      });
+      return currentPicks.map((pick, index) =>
+        index === targetIndex ? { ...pick, wager } : pick,
+      );
     });
   };
 
@@ -272,7 +273,7 @@ export default function Home() {
   // Validation
   const submissionClosed = isPastSaturdayNoonET();
   const usedWagers = new Set(picks.filter((p) => p.wager > 0).map((p) => p.wager));
-  const validWagerSet = picks.length === new Set(picks.map((p) => p.wager)).size;
+  const validWagerSet = picks.filter((p) => p.wager > 0).length === new Set(picks.filter((p) => p.wager > 0).map((p) => p.wager)).size;
   const readyToSubmit =
     picks.length >= 1 &&
     picks.length <= 5 &&
@@ -568,11 +569,11 @@ export default function Home() {
                   return (
                     <button
                       key={num}
-                      disabled={gameLocked}
+                      disabled={gameLocked || isTakenByAnotherPick}
                       onClick={() => handleWager(game.GameID, num)}
                       style={{
                         width: "26px", height: "26px", borderRadius: "8px", border: "1px solid #e2e8f0", fontWeight: "bold", fontSize: "10px",
-                        cursor: gameLocked ? "not-allowed" : "pointer",
+                        cursor: gameLocked || isTakenByAnotherPick ? "not-allowed" : "pointer",
                         backgroundColor: isSelected ? "#0f172a" : isTakenByAnotherPick ? "#e2e8f0" : "#fff",
                         color: isSelected ? "#fff" : isTakenByAnotherPick ? "#94a3b8" : "#64748b",
                         opacity: gameLocked ? 0.7 : isTakenByAnotherPick ? 0.7 : 1,
@@ -640,7 +641,7 @@ export default function Home() {
           >
             {submitting
               ? "SENDING..."
-              : `LOCK IN PICKS (${picks.filter((p) => p.wager > 0).length}/5)`}
+              : `LOCK IN PICKS (${picks.length}/5)`}
           </button>
         </div>
       </div>
