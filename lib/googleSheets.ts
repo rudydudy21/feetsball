@@ -54,7 +54,7 @@ const getSpreadResultForPick = (game: { AwayTeam?: string; HomeTeam?: string; Sp
       : 0;
 
   const selectedSideSpread = selectedKey === awayKey ? -spread : spread;
-  const adjustedMargin = selectedSideMargin - selectedSideSpread;
+  const adjustedMargin = selectedSideMargin + selectedSideSpread;
 
   if (adjustedMargin > 0) return 'correct';
   if (adjustedMargin === 0) return 'push';
