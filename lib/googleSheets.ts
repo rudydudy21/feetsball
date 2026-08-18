@@ -298,7 +298,6 @@ export async function submitUserPicks(
 export async function getWeeklyResultsForWeek(week: string) {
   const weekNum = Number(week);
   const isBowlWeek = weekNum >= 12 && weekNum <= 14;
-  const missedPenalty = isBowlWeek ? -15 : -5;
 
   const weeklySlate = await getWeeklySlate();
   const slateByGameId = new Map(
@@ -366,15 +365,18 @@ export async function getWeeklyResultsForWeek(week: string) {
     const byeWeekUsed = asString(userRow.get('ByeWeekUsed')).toUpperCase() === 'TRUE';
     let penalty = 0;
 
-    if (!byeWeekUsed) {
-      // First missed week: use bye week, 0 penalty
+    if (isBowlWeek) {
+      // Championship weeks (12-14): always -15, no bye
+      penalty = -15;
+    } else if (!byeWeekUsed) {
+      // First missed week (non-championship): use bye week, 0 penalty
       penalty = 0;
       // Update user's ByeWeekUsed to TRUE
       userRow.set('ByeWeekUsed', 'TRUE');
       await userRow.save();
     } else {
-      // Already used bye: apply penalty
-      penalty = missedPenalty;
+      // Already used bye (non-championship): -5 penalty
+      penalty = -5;
     }
 
     byUser.set(username, { username, picks: {}, total: penalty });
@@ -460,16 +462,19 @@ export async function getSeasonResults() {
       if (userSubmittedWeeks.has(w)) continue; // User submitted for this week
 
       const isBowlWeek = w >= 12 && w <= 14;
-      const missedPenalty = isBowlWeek ? -15 : -5;
 
-      if (!byeWeekUsedThisSeason) {
-        // First missed week: use bye, 0 penalty
+      if (isBowlWeek) {
+        // Championship weeks: always -15, no bye applies
+        entry.weeks[w] = -15;
+        entry.total += -15;
+      } else if (!byeWeekUsedThisSeason) {
+        // First missed non-championship week: use bye, 0 penalty
         entry.weeks[w] = 0;
         byeWeekUsedThisSeason = true;
       } else {
-        // Already used bye: apply penalty
-        entry.weeks[w] = missedPenalty;
-        entry.total += missedPenalty;
+        // Already used bye: -5 penalty for non-championship weeks
+        entry.weeks[w] = -5;
+        entry.total += -5;
       }
     }
   }
