@@ -16,6 +16,11 @@ export const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID || '', jwt)
 
 const asString = (value: unknown) => String(value ?? '').trim();
 
+const normalizeGameId = (value: unknown): string =>
+  asString(value)
+    .replace(/\.0$/, '')
+    .replace(/^0+(?=\d)/, '');
+
 export const CONFIG = {
   CFBD_KEY: process.env.CFBD_KEY || '',
   ODDS_KEY: process.env.ODDS_KEY || '',
@@ -137,54 +142,75 @@ export async function getWeeklySlate() {
 export async function getUserPicks(username: string, pin: string) {
   const normalizedUsername = normalizeUsername(username);
   const trimmedPin = pin.trim();
+  const currentWeek = await getCurrentWeek().catch(() => '');
 
-  const preferredRows = await (async () => {
+  const loadRows = async (sheetName: string) => {
     try {
-      const sheet = await getSheetByTitle('Picks');
-      return await sheet.getRows();
+      const sheet = await getSheetByTitle(sheetName);
+      const rows = await sheet.getRows();
+      return rows;
     } catch {
       return [] as any[];
     }
-  })();
+  };
 
-  const preferredMatches = preferredRows
-    .filter((row) => {
+  const rowsBySheet = await Promise.all([
+    loadRows('Picks'),
+    loadRows('User_Picks'),
+  ]);
+
+  const allMatchingRows: Array<{ gameId: string; team: string; wager: number; week: string; submittedAt: number }> = [];
+
+  for (const rows of rowsBySheet) {
+    for (const row of rows) {
       const rowUsername = normalizeUsername(row.get('Username'));
       const rowPin = asString(row.get('PIN'));
-      return rowUsername === normalizedUsername && rowPin === trimmedPin;
-    })
-    .map((row) => ({
-      gameId: asString(row.get('GameID')),
-      team: asString(row.get('Selection')),
-      wager: Number(row.get('Wager') ?? 0),
-      week: asString(row.get('Week')),
-    }))
-    .filter((pick) => pick.gameId && pick.team);
+      const rowWeek = asString(row.get('Week'));
+      if (rowUsername !== normalizedUsername || rowPin !== trimmedPin) continue;
+      if (currentWeek && rowWeek && rowWeek !== currentWeek) continue;
 
-  if (preferredMatches.length > 0) {
-    return preferredMatches;
+      const gameId = asString(row.get('GameID'));
+      const team = asString(row.get('Selection') || row.get('Team'));
+      const wager = Number(row.get('Wager') ?? 0);
+      const submittedAt = Date.parse(asString(row.get('SubmittedAt') || row.get('Timestamp') || '')) || 0;
+
+      if (!gameId || !team) continue;
+
+      const normalizedGameId = normalizeGameId(gameId);
+      if (!normalizedGameId) continue;
+
+      allMatchingRows.push({
+        gameId: normalizedGameId,
+        team,
+        wager: Number.isFinite(wager) ? wager : 0,
+        week: rowWeek,
+        submittedAt,
+      });
+    }
   }
 
-  try {
-    const legacySheet = await getSheetByTitle('User_Picks');
-    const legacyRows = await legacySheet.getRows();
+  const seenGameIds = new Set<string>();
+  const seenWagers = new Set<number>();
+  const newestFiveDistinct: Array<{ gameId: string; team: string; wager: number; week: string }> = [];
 
-    return legacyRows
-      .filter((row) => {
-        const rowUsername = normalizeUsername(row.get('Username'));
-        const rowPin = asString(row.get('PIN'));
-        return rowUsername === normalizedUsername && rowPin === trimmedPin;
-      })
-      .map((row) => ({
-        gameId: asString(row.get('GameID')),
-        team: asString(row.get('Team') || row.get('Selection')),
-        wager: Number(row.get('Wager') ?? 0),
-        week: asString(row.get('Week')),
-      }))
-      .filter((pick) => pick.gameId && pick.team);
-  } catch {
-    return [];
+  for (const row of [...allMatchingRows].sort((a, b) => b.submittedAt - a.submittedAt)) {
+    if (seenGameIds.has(row.gameId)) continue;
+    if (row.wager > 0 && seenWagers.has(row.wager)) continue;
+
+    seenGameIds.add(row.gameId);
+    if (row.wager > 0) seenWagers.add(row.wager);
+
+    newestFiveDistinct.push({
+      gameId: row.gameId,
+      team: row.team,
+      wager: row.wager,
+      week: row.week,
+    });
+
+    if (newestFiveDistinct.length >= 5) break;
   }
+
+  return newestFiveDistinct;
 }
 
 export async function submitUserPicks(

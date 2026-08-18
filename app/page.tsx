@@ -53,6 +53,21 @@ const isGameStarted = (kickoff: string | undefined) => {
   return kickoffDate <= new Date();
 };
 
+const dedupePicks = (value: PickEntry[]) => {
+  const byGameId = new Map<string, PickEntry>();
+
+  for (const pick of value) {
+    if (!pick?.gameId) continue;
+    const normalizedKey = normalizeGameId(pick.gameId);
+    if (!normalizedKey) continue;
+    if (!byGameId.has(normalizedKey)) {
+      byGameId.set(normalizedKey, pick);
+    }
+  }
+
+  return [...byGameId.values()];
+};
+
 const normalizeExistingPicks = (value: unknown): PickEntry[] => {
   const unwrapArray = (candidate: unknown): unknown[] => {
     if (Array.isArray(candidate)) return candidate;
@@ -110,10 +125,14 @@ const normalizeExistingPicks = (value: unknown): PickEntry[] => {
       wager: Number.isFinite(wager) ? wager : 0,
     } satisfies PickEntry;
 
-    byGameId.set(gameId, normalized);
+    const normalizedKey = normalizeGameId(gameId);
+    if (!normalizedKey) continue;
+    if (!byGameId.has(normalizedKey)) {
+      byGameId.set(normalizedKey, normalized);
+    }
   }
 
-  return [...byGameId.values()];
+  return dedupePicks([...byGameId.values()]);
 };
 
 export default function Home() {
@@ -139,7 +158,7 @@ export default function Home() {
 
   const handleSelect = (gameId: string, team: string) => {
     setPicks((currentPicks) => {
-      const deduped = currentPicks.filter((pick, index, arr) => arr.findIndex((candidate) => matchesGame(candidate, pick.gameId)) === index);
+      const deduped = dedupePicks(currentPicks);
       const existingIndex = deduped.findIndex((p) => matchesGame(p, gameId));
 
       if (existingIndex >= 0) {
@@ -154,9 +173,7 @@ export default function Home() {
       }
 
       if (deduped.length >= 5) {
-        const next = [...deduped];
-        next.shift();
-        return [...next, { gameId, team, wager: 0 }];
+        return deduped;
       }
 
       return [...deduped, { gameId, team, wager: 0 }];
@@ -165,27 +182,32 @@ export default function Home() {
 
   const handleWager = (gameId: string, wager: number) => {
     setPicks((currentPicks) => {
-      const targetIndex = currentPicks.findIndex((pick) => matchesGame(pick, gameId));
+      const deduped = dedupePicks(currentPicks);
+      const targetIndex = deduped.findIndex((pick) => matchesGame(pick, gameId));
       if (targetIndex === -1) {
-        return currentPicks;
+        return deduped;
       }
 
-      const targetPick = currentPicks[targetIndex];
+      const targetPick = deduped[targetIndex];
       if (targetPick.wager === wager) {
-        return currentPicks.map((pick, index) =>
+        return deduped.map((pick, index) =>
           index === targetIndex ? { ...pick, wager: 0 } : pick,
         );
       }
 
-      const isWagerTakenByAnotherPick = currentPicks.some(
+      const otherPickIndex = deduped.findIndex(
         (pick, index) => index !== targetIndex && pick.wager === wager && pick.wager > 0,
       );
 
-      if (isWagerTakenByAnotherPick) {
-        return currentPicks;
+      if (otherPickIndex >= 0) {
+        return deduped.map((pick, index) => {
+          if (index === targetIndex) return { ...pick, wager };
+          if (index === otherPickIndex) return { ...pick, wager: 0 };
+          return pick;
+        });
       }
 
-      return currentPicks.map((pick, index) =>
+      return deduped.map((pick, index) =>
         index === targetIndex ? { ...pick, wager } : pick,
       );
     });
@@ -218,7 +240,7 @@ export default function Home() {
       }
 
       const payload = await res.json();
-      const normalized = normalizeExistingPicks(payload);
+      const normalized = dedupePicks(normalizeExistingPicks(payload)).slice(0, 5);
       setPicks(normalized);
       if (normalized.length === 0) {
         alert('No saved picks found for that username/PIN.');
@@ -239,6 +261,13 @@ export default function Home() {
 
     if (picks.length < 1 || picks.length > 5) {
       alert('Please select between 1 and 5 games before locking in your picks.');
+      return;
+    }
+
+    const uniquePicks = dedupePicks(picks);
+    if (uniquePicks.length !== picks.length) {
+      setPicks(uniquePicks);
+      alert('Duplicate picks were removed before submission.');
       return;
     }
 
@@ -569,11 +598,11 @@ export default function Home() {
                   return (
                     <button
                       key={num}
-                      disabled={gameLocked || isTakenByAnotherPick}
+                      disabled={gameLocked}
                       onClick={() => handleWager(game.GameID, num)}
                       style={{
                         width: "26px", height: "26px", borderRadius: "8px", border: "1px solid #e2e8f0", fontWeight: "bold", fontSize: "10px",
-                        cursor: gameLocked || isTakenByAnotherPick ? "not-allowed" : "pointer",
+                        cursor: gameLocked ? "not-allowed" : "pointer",
                         backgroundColor: isSelected ? "#0f172a" : isTakenByAnotherPick ? "#e2e8f0" : "#fff",
                         color: isSelected ? "#fff" : isTakenByAnotherPick ? "#94a3b8" : "#64748b",
                         opacity: gameLocked ? 0.7 : isTakenByAnotherPick ? 0.7 : 1,
