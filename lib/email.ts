@@ -1,7 +1,10 @@
 import { Resend } from 'resend';
 
+const normalizeSender = (value: string | undefined) =>
+  (value ?? 'onboarding@resend.dev').trim().replace(/^['"]+|['"]+$/g, '');
+
 const resendApiKey = process.env.RESEND_API_KEY;
-const emailFrom = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+const emailFrom = normalizeSender(process.env.RESEND_FROM_EMAIL);
 
 export const resend = resendApiKey ? new Resend(resendApiKey) : null;
 

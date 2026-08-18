@@ -296,14 +296,25 @@ export async function submitUserPicks(
 }
 
 export async function getWeeklyResultsForWeek(week: string) {
+  const weekNum = Number(week);
+  const isBowlWeek = weekNum >= 12 && weekNum <= 14;
+  const missedPenalty = isBowlWeek ? -15 : -5;
+
   const weeklySlate = await getWeeklySlate();
   const slateByGameId = new Map(
     weeklySlate.map((game) => [asString(game.GameID), game]),
   );
 
+  // Get all registered users
+  const usersSheet = await getSheetByTitle('Users');
+  const usersRows = await usersSheet.getRows();
+
   const picksSheet = await getSheetByTitle('Picks');
   const pickRows = await picksSheet.getRows();
   const weeklyPicks = pickRows.filter((row) => asString(row.get('Week')) === week);
+
+  // Track which users submitted picks for this week
+  const usersWithPicks = new Set<string>();
 
   const byUser = new Map<string, { username: string; picks: Record<number, { selection: string; outcome: string }>; total: number }>();
 
@@ -314,6 +325,8 @@ export async function getWeeklyResultsForWeek(week: string) {
     const wager = Number(row.get('Wager') ?? 0);
 
     if (!username || !gameId || !selection) continue;
+
+    usersWithPicks.add(username);
 
     const game = slateByGameId.get(gameId);
     const isFinal = game && asString(game.Status).toLowerCase() === 'final';
@@ -345,6 +358,28 @@ export async function getWeeklyResultsForWeek(week: string) {
     userEntry.total += delta;
   }
 
+  // Add users who didn't submit picks with bye/penalty logic
+  for (const userRow of usersRows) {
+    const username = asString(userRow.get('Username'));
+    if (usersWithPicks.has(username)) continue; // Already processed
+
+    const byeWeekUsed = asString(userRow.get('ByeWeekUsed')).toUpperCase() === 'TRUE';
+    let penalty = 0;
+
+    if (!byeWeekUsed) {
+      // First missed week: use bye week, 0 penalty
+      penalty = 0;
+      // Update user's ByeWeekUsed to TRUE
+      userRow.set('ByeWeekUsed', 'TRUE');
+      await userRow.save();
+    } else {
+      // Already used bye: apply penalty
+      penalty = missedPenalty;
+    }
+
+    byUser.set(username, { username, picks: {}, total: penalty });
+  }
+
   return Array.from(byUser.values()).sort((a, b) => b.total - a.total);
 }
 
@@ -356,8 +391,29 @@ export async function getSeasonResults() {
     weeklySlate.map((game) => [asString(game.GameID), game]),
   );
 
+  // Get all registered users and current week info
+  const usersSheet = await getSheetByTitle('Users');
+  const usersRows = await usersSheet.getRows();
+  const currentWeek = await getCurrentWeek();
+  const currentWeekNum = Number(currentWeek);
+
   const userTotals = new Map<string, { username: string; weeks: Record<number, number>; total: number }>();
 
+  // Initialize all users
+  for (const userRow of usersRows) {
+    const username = asString(userRow.get('Username'));
+    if (!userTotals.has(username)) {
+      userTotals.set(username, { username, weeks: {}, total: 0 });
+    }
+  }
+
+  // Track which users have submissions per week
+  const userWeeksSubmitted = new Map<string, Set<number>>();
+  for (const userRow of usersRows) {
+    userWeeksSubmitted.set(asString(userRow.get('Username')), new Set());
+  }
+
+  // Process all picks
   for (const row of pickRows) {
     const username = asString(row.get('Username'));
     const week = Number(asString(row.get('Week')) || 0);
@@ -366,6 +422,12 @@ export async function getSeasonResults() {
     const wager = Number(row.get('Wager') ?? 0);
 
     if (!username || !week || !gameId || !selection) continue;
+
+    if (!userTotals.has(username)) {
+      userTotals.set(username, { username, weeks: {}, total: 0 });
+    }
+
+    userWeeksSubmitted.get(username)?.add(week);
 
     const game = slateByGameId.get(gameId);
     const points = game && asString(game.Status).toLowerCase() === 'final'
@@ -379,13 +441,37 @@ export async function getSeasonResults() {
         })()
       : 0;
 
-    if (!userTotals.has(username)) {
-      userTotals.set(username, { username, weeks: {}, total: 0 });
-    }
-
     const entry = userTotals.get(username)!;
     entry.weeks[week] = (entry.weeks[week] ?? 0) + points;
     entry.total += points;
+  }
+
+  // Apply bye-week and missed-week penalties for weeks that have passed
+  for (const userRow of usersRows) {
+    const username = asString(userRow.get('Username'));
+    const byeWeekUsed = asString(userRow.get('ByeWeekUsed')).toUpperCase() === 'TRUE';
+    const userSubmittedWeeks = userWeeksSubmitted.get(username) || new Set();
+    const entry = userTotals.get(username)!;
+
+    let byeWeekUsedThisSeason = byeWeekUsed;
+
+    // Check weeks 1 through currentWeek - 1 (completed weeks only)
+    for (let w = 1; w < currentWeekNum; w++) {
+      if (userSubmittedWeeks.has(w)) continue; // User submitted for this week
+
+      const isBowlWeek = w >= 12 && w <= 14;
+      const missedPenalty = isBowlWeek ? -15 : -5;
+
+      if (!byeWeekUsedThisSeason) {
+        // First missed week: use bye, 0 penalty
+        entry.weeks[w] = 0;
+        byeWeekUsedThisSeason = true;
+      } else {
+        // Already used bye: apply penalty
+        entry.weeks[w] = missedPenalty;
+        entry.total += missedPenalty;
+      }
+    }
   }
 
   return Array.from(userTotals.values()).sort((a, b) => b.total - a.total);
@@ -427,6 +513,7 @@ export async function registerUser(user: { username: string; email: string; pin:
     Email: user.email.trim().toLowerCase(),
     PIN: user.pin.trim(),
     Created: new Date().toLocaleString(),
+    ByeWeekUsed: 'FALSE',
   });
 
   return { success: true };
