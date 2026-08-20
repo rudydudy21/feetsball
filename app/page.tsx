@@ -193,16 +193,14 @@ export default function Home() {
         );
       }
 
-      const otherPickIndex = deduped.findIndex(
-        (pick, index) => index !== targetIndex && pick.wager === wager && pick.wager > 0,
+      // Check if another pick is already using this wager
+      const isWagerTaken = deduped.some(
+        (pick, index) => index !== targetIndex && pick.wager === wager && pick.wager > 0
       );
 
-      if (otherPickIndex >= 0) {
-        return deduped.map((pick, index) => {
-          if (index === targetIndex) return { ...pick, wager };
-          if (index === otherPickIndex) return { ...pick, wager: 0 };
-          return pick;
-        });
+      if (isWagerTaken) {
+        // Do nothing - require user to "unclick" the other one first
+        return deduped;
       }
 
       return deduped.map((pick, index) =>
