@@ -184,9 +184,7 @@ export default function Home() {
     setPicks((currentPicks) => {
       const deduped = dedupePicks(currentPicks);
       const targetIndex = deduped.findIndex((pick) => matchesGame(pick, gameId));
-      if (targetIndex === -1) {
-        return deduped;
-      }
+      if (targetIndex === -1) return deduped;
 
       const targetPick = deduped[targetIndex];
       if (targetPick.wager === wager) {
@@ -287,7 +285,7 @@ export default function Home() {
 
       if (res.ok) {
         alert("🏆 PICKS LOCKED IN! Good luck this week.");
-        setPicks([]); // Clear picks after success
+        setPicks([]);
       } else {
         const err = await res.json();
         alert("❌ Error: " + (err.error || "Submission failed"));
@@ -299,7 +297,6 @@ export default function Home() {
     }
   };
 
-  // Validation
   const submissionClosed = isPastSaturdayNoonET();
   const usedWagers = new Set(picks.filter((p) => p.wager > 0).map((p) => p.wager));
   const validWagerSet = picks.filter((p) => p.wager > 0).length === new Set(picks.filter((p) => p.wager > 0).map((p) => p.wager)).size;
@@ -316,54 +313,41 @@ export default function Home() {
   return (
     <div
       style={{
-        background: "linear-gradient(180deg, #F5F7FA 0%, #EEF2F6 100%)",
+        background: "#F1F5F9",
         minHeight: "100vh",
-        padding: "max(10px, env(safe-area-inset-top)) 10px max(18px, env(safe-area-inset-bottom))",
+        padding: "max(8px, env(safe-area-inset-top)) 8px max(14px, env(safe-area-inset-bottom))",
         color: "#0F172A",
         fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif",
         WebkitFontSmoothing: "antialiased",
       }}
-      >
-      <div style={{ maxWidth: "430px", margin: "0 auto", width: "100%", display: "flex", flexDirection: "column", gap: "10px" }}>
-        <div style={{ textAlign: "center", paddingTop: "6px" }}>
-          <h1
-            style={{
-              fontSize: "clamp(2rem, 7vw, 3rem)",
-              fontWeight: "900",
-              letterSpacing: "-2px",
-              margin: "0",
-              color: "#0f172a",
-              lineHeight: 1,
-            }}
-          >
-            FEETSBALL
-          </h1>
-          <p
-            style={{
-              color: "#64748b",
-              fontWeight: "800",
-              fontSize: "10px",
-              letterSpacing: "3px",
-              margin: "6px 0 0",
-            }}
-          >
-            2026 CHALLENGE
-          </p>
+    >
+      <div style={{ maxWidth: "440px", margin: "0 auto", width: "100%", display: "flex", flexDirection: "column", gap: "8px" }}>
+        
+        {/* COMPACT BRAND HEADER */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 4px 0" }}>
+          <div>
+            <h1 style={{ fontSize: "24px", fontWeight: "900", letterSpacing: "-1px", margin: 0, lineHeight: 1 }}>
+              FEETSBALL
+            </h1>
+            <span style={{ color: "#64748b", fontWeight: "800", fontSize: "10px", letterSpacing: "2px" }}>
+              2026 CHALLENGE
+            </span>
+          </div>
+
+          <nav style={{ display: 'flex', gap: '4px', background: 'rgba(15,23,42,0.06)', borderRadius: '999px', padding: '3px' }}>
+            <Link href="/" style={{ color: '#0F172A', textDecoration: 'none', background: '#FFFFFF', borderRadius: '999px', padding: '6px 12px', fontSize: '11px', fontWeight: '800', boxShadow: '0 1px 2px rgba(15,23,42,0.08)' }}>PICKS</Link>
+            <Link href="/leaderboard/weekly" style={{ color: '#475569', textDecoration: 'none', borderRadius: '999px', padding: '6px 10px', fontSize: '11px', fontWeight: '800' }}>WEEKLY</Link>
+            <Link href="/leaderboard/season" style={{ color: '#475569', textDecoration: 'none', borderRadius: '999px', padding: '6px 10px', fontSize: '11px', fontWeight: '800' }}>SEASON</Link>
+          </nav>
         </div>
 
-        <nav style={{ display: 'flex', justifyContent: 'center', gap: '6px', fontSize: '11px', fontWeight: '800', background: 'rgba(15,23,42,0.04)', borderRadius: '999px', padding: '4px', alignSelf: 'center', width: 'fit-content', border: '1px solid rgba(148,163,184,0.18)', backdropFilter: 'blur(10px)' }}>
-          <Link href="/" style={{ color: '#0F172A', textDecoration: 'none', background: '#FFFFFF', borderRadius: '999px', padding: '8px 14px', boxShadow: '0 1px 2px rgba(15,23,42,0.06)' }}>PICKS</Link>
-          <Link href="/leaderboard/weekly" style={{ color: '#475569', textDecoration: 'none', borderRadius: '999px', padding: '8px 14px' }}>WEEKLY</Link>
-          <Link href="/leaderboard/season" style={{ color: '#475569', textDecoration: 'none', borderRadius: '999px', padding: '8px 14px' }}>SEASON</Link>
-        </nav>
-
-        {/* Credentials */}
+        {/* COMPACT CREDENTIALS BAR */}
         <form
           onSubmit={(e) => {
             e.preventDefault();
             void handleLogin();
           }}
-          style={{ display: "flex", gap: "8px", marginBottom: "6px", alignItems: "stretch", width: "100%" }}
+          style={{ display: "flex", gap: "6px", alignItems: "stretch", width: "100%" }}
         >
           <input
             placeholder="Username"
@@ -371,14 +355,13 @@ export default function Home() {
             style={{
               flex: 2,
               minWidth: 0,
-              padding: "12px 12px",
-              borderRadius: "14px",
-              border: "1px solid rgba(148,163,184,0.35)",
+              padding: "9px 12px",
+              borderRadius: "12px",
+              border: "1px solid #cbd5e1",
               outline: "none",
               fontWeight: "700",
               fontSize: "14px",
-              background: "rgba(255,255,255,0.75)",
-              boxShadow: "inset 0 1px 1px rgba(15,23,42,0.04)",
+              background: "#FFFFFF",
             }}
             onChange={(e) =>
               setUserInfo((prev) => ({ ...prev, username: normalizeUsernameInput(e.target.value) }))
@@ -392,14 +375,13 @@ export default function Home() {
             style={{
               flex: 1,
               minWidth: 0,
-              padding: "12px 8px",
-              borderRadius: "14px",
-              border: "1px solid rgba(148,163,184,0.35)",
+              padding: "9px 6px",
+              borderRadius: "12px",
+              border: "1px solid #cbd5e1",
               textAlign: "center",
               fontWeight: "700",
               fontSize: "14px",
-              background: "rgba(255,255,255,0.75)",
-              boxShadow: "inset 0 1px 1px rgba(15,23,42,0.04)",
+              background: "#FFFFFF",
             }}
             onChange={(e) => setUserInfo((prev) => ({ ...prev, pin: e.target.value }))}
           />
@@ -408,245 +390,267 @@ export default function Home() {
             disabled={loginLoading || !userInfo.username || userInfo.pin.length !== 4}
             style={{
               padding: "0 12px",
-              borderRadius: "14px",
+              borderRadius: "12px",
               border: "none",
-              background: !userInfo.username || userInfo.pin.length !== 4 ? "#cbd5e1" : "linear-gradient(180deg, #0f172a 0%, #111827 100%)",
+              background: !userInfo.username || userInfo.pin.length !== 4 ? "#94a3b8" : "#0f172a",
               color: "#fff",
               fontWeight: 900,
               cursor: !userInfo.username || userInfo.pin.length !== 4 ? "not-allowed" : "pointer",
-              whiteSpace: "nowrap",
               fontSize: "12px",
-              boxShadow: !userInfo.username || userInfo.pin.length !== 4 ? "none" : "0 8px 16px rgba(15,23,42,0.15)",
             }}
           >
-            {loginLoading ? "LOADING..." : "LOAD MY PICKS"}
+            {loginLoading ? "..." : "LOAD"}
           </button>
-        </form>
-
-        {picks.length > 0 && (
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          {picks.length > 0 && (
             <button
               type="button"
               onClick={clearLoadedPicks}
               style={{
-                border: "1px solid rgba(148,163,184,0.4)",
-                backgroundColor: "rgba(255,255,255,0.8)",
-                color: "#0f172a",
+                border: "1px solid #cbd5e1",
+                backgroundColor: "#FFFFFF",
+                color: "#64748b",
                 borderRadius: "12px",
-                padding: "7px 10px",
+                padding: "0 8px",
                 fontWeight: 800,
                 cursor: "pointer",
                 fontSize: "11px",
               }}
             >
-              Clear picks
+              ✕
             </button>
+          )}
+        </form>
+
+        {showLoadingState ? (
+          <div style={{ padding: "30px", textAlign: "center", color: "#64748b", fontWeight: "700", fontSize: "14px" }}>
+            Loading slate...
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {games.map((game: SlateGame) => {
+              const myPick = picks.find((p) => matchesGame(p, game.GameID));
+              const gameLocked = isGameStarted(game.Kickoff_Time) || submissionClosed;
+
+              const kickoff = new Date(game.Kickoff_Time);
+              const formattedTime = !isNaN(kickoff.getTime())
+                ? kickoff.toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit', hour12: true })
+                : game.Kickoff_Time;
+
+              const spreadVal = Number(game.Spread);
+              const hasValidSpread = !isNaN(spreadVal);
+              const awaySpread = hasValidSpread ? ((spreadVal * -1) > 0 ? `+${spreadVal * -1}` : `${spreadVal * -1}`) : null;
+              const homeSpread = hasValidSpread ? (spreadVal > 0 ? `+${spreadVal}` : `${spreadVal}`) : null;
+
+              const isAwaySelected = myPick && teamMatches(myPick.team, game.AwayTeam);
+              const isHomeSelected = myPick && teamMatches(myPick.team, game.HomeTeam);
+
+              return (
+                <div
+                  key={game.GameID}
+                  style={{
+                    background: "#FFFFFF",
+                    borderRadius: "16px",
+                    padding: "8px 10px",
+                    boxShadow: "0 2px 4px rgba(15, 23, 42, 0.04)",
+                    border: myPick ? "1.5px solid #2563EB" : "1px solid #E2E8F0",
+                    opacity: gameLocked ? 0.75 : 1,
+                  }}
+                >
+                  {/* TIME & LOCK HEADER */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', fontSize: '10px', fontWeight: '800', color: '#64748b' }}>
+                    <span>{formattedTime}</span>
+                    {gameLocked && (
+                      <span style={{ color: '#ef4444', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                        🔒 LOCKED
+                      </span>
+                    )}
+                  </div>
+
+{/* TEAMS LIST (HORIZONTAL COMPACT ROWS) */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    
+                    {/* AWAY TEAM ROW */}
+                    <button
+                      onClick={() => !gameLocked && handleSelect(game.GameID, game.AwayTeam)}
+                      disabled={gameLocked}
+                      style={{
+                        width: "100%",
+                        padding: "6px 8px",
+                        borderRadius: "10px",
+                        border: "none",
+                        cursor: gameLocked ? "default" : "pointer",
+                        background: isAwaySelected ? "#2563EB" : "#F8FAFC",
+                        color: isAwaySelected ? "#FFFFFF" : "#0F172A",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        transition: "0.15s ease",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
+                        {/* FIXED-WIDTH RANK BADGE / PLACEHOLDER */}
+                        <span
+                          style={{
+                            fontSize: "10px",
+                            fontWeight: "900",
+                            width: "22px",
+                            textAlign: "center",
+                            flexShrink: 0,
+                            color: isAwaySelected ? "#BFDBFE" : "#94A3B8",
+                            visibility: game.AwayRank && String(game.AwayRank).trim() !== "" ? "visible" : "hidden",
+                          }}
+                        >
+                          #{game.AwayRank || "--"}
+                        </span>
+
+                        <Image
+                          src={game.AwayLogo}
+                          alt=""
+                          width={24}
+                          height={24}
+                          unoptimized
+                          style={{ width: "24px", height: "24px", objectFit: "contain", flexShrink: 0 }}
+                        />
+                        <span style={{ fontSize: "14px", fontWeight: "900", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {game.AwayTeam}
+                        </span>
+                      </div>
+                      {awaySpread && (
+                        <span style={{
+                          fontSize: "12px",
+                          fontWeight: "900",
+                          padding: "2px 6px",
+                          borderRadius: "6px",
+                          background: isAwaySelected ? "rgba(255,255,255,0.2)" : "#E2E8F0",
+                          color: isAwaySelected ? "#FFFFFF" : "#334155",
+                          flexShrink: 0
+                        }}>
+                          {awaySpread}
+                        </span>
+                      )}
+                    </button>
+
+                    {/* HOME TEAM ROW */}
+                    <button
+                      onClick={() => !gameLocked && handleSelect(game.GameID, game.HomeTeam)}
+                      disabled={gameLocked}
+                      style={{
+                        width: "100%",
+                        padding: "6px 8px",
+                        borderRadius: "10px",
+                        border: "none",
+                        cursor: gameLocked ? "default" : "pointer",
+                        background: isHomeSelected ? "#2563EB" : "#F8FAFC",
+                        color: isHomeSelected ? "#FFFFFF" : "#0F172A",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        transition: "0.15s ease",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
+                        {/* FIXED-WIDTH RANK BADGE / PLACEHOLDER */}
+                        <span
+                          style={{
+                            fontSize: "10px",
+                            fontWeight: "900",
+                            width: "22px",
+                            textAlign: "center",
+                            flexShrink: 0,
+                            color: isHomeSelected ? "#BFDBFE" : "#94A3B8",
+                            visibility: game.HomeRank && String(game.HomeRank).trim() !== "" ? "visible" : "hidden",
+                          }}
+                        >
+                          #{game.HomeRank || "--"}
+                        </span>
+
+                        <Image
+                          src={game.HomeLogo}
+                          alt=""
+                          width={24}
+                          height={24}
+                          unoptimized
+                          style={{ width: "24px", height: "24px", objectFit: "contain", flexShrink: 0 }}
+                        />
+                        <span style={{ fontSize: "14px", fontWeight: "900", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {game.HomeTeam}
+                        </span>
+                      </div>
+                      {homeSpread && (
+                        <span style={{
+                          fontSize: "12px",
+                          fontWeight: "900",
+                          padding: "2px 6px",
+                          borderRadius: "6px",
+                          background: isHomeSelected ? "rgba(255,255,255,0.2)" : "#E2E8F0",
+                          color: isHomeSelected ? "#FFFFFF" : "#334155",
+                          flexShrink: 0
+                        }}>
+                          {homeSpread}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* INLINE WAGER BAR */}
+                  {myPick && (
+                    <div style={{ marginTop: "6px", paddingTop: "6px", borderTop: "1px dashed #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: "10px", fontWeight: "900", color: "#64748b" }}>
+                        POINTS
+                      </span>
+                      <div style={{ display: "flex", gap: "6px" }}>
+                        {[1, 2, 3, 4, 5].map((num) => {
+                          const isSelected = myPick.wager === num;
+                          const isTaken = usedWagers.has(num) && !isSelected;
+
+                          return (
+                            <button
+                              key={num}
+                              disabled={gameLocked}
+                              onClick={() => handleWager(game.GameID, num)}
+                              style={{
+                                width: "30px",
+                                height: "26px",
+                                borderRadius: "6px",
+                                border: "1px solid",
+                                borderColor: isSelected ? "#0F172A" : "#CBD5E1",
+                                fontWeight: "900",
+                                fontSize: "12px",
+                                cursor: gameLocked ? "not-allowed" : "pointer",
+                                backgroundColor: isSelected ? "#0F172A" : isTaken ? "#F1F5F9" : "#FFFFFF",
+                                color: isSelected ? "#FFFFFF" : isTaken ? "#CBD5E1" : "#0F172A",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              {num}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
-{showLoadingState ? (
-  <div style={{ padding: "14px", textAlign: "center", color: "#64748b", fontWeight: "700", fontSize: "13px" }}>
-    Loading slate...
-  </div>
-) : (
-  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-    {games.map((game: SlateGame) => {
-      const myPick = picks.find((p) => matchesGame(p, game.GameID));
-      const gameLocked = isGameStarted(game.Kickoff_Time) || submissionClosed;
-
-      // Format the Kickoff Time safely
-      const kickoff = new Date(game.Kickoff_Time);
-      const formattedTime = !isNaN(kickoff.getTime())
-        ? kickoff.toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit', hour12: true })
-        : game.Kickoff_Time;
-
-      const spreadVal = Number(game.Spread);
-      const hasValidSpread = !isNaN(spreadVal);
-
-      return (
-        <div
-          key={game.GameID}
-          style={{
-            background: "linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)",
-            borderRadius: "24px",
-            padding: "8px 8px 10px",
-            boxShadow: "0 10px 24px rgba(15, 23, 42, 0.05), inset 0 1px 0 rgba(255,255,255,0.8)",
-            border: "1px solid rgba(148,163,184,0.18)",
-            opacity: gameLocked ? 0.8 : 1,
-            position: 'relative'
-          }}
-        >
-          {/* KICKOFF BADGE */}
-          <div style={{ 
-              display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px',
-              fontSize: '9px', fontWeight: '900', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px'
-            }}>
-              <span style={{ color: '#64748b' }}>{formattedTime}</span>
-              {gameLocked && (
-                <span style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                  • <span style={{ fontSize: '10px' }}>🔒</span> LOCKED
-                </span>
-              )}
-            </div>
-
-          <div style={{ display: "flex", alignItems: "stretch", justifyContent: "space-between", gap: "6px", minHeight: "108px" }}>
-            
-            {/* AWAY TEAM BUTTON */}
-            <button
-              onClick={() => !gameLocked && handleSelect(game.GameID, game.AwayTeam)}
-              disabled={gameLocked}
-              style={{
-                flex: 1,
-                minWidth: 0,
-                padding: "8px 4px 10px",
-                borderRadius: "18px",
-                border: "1px solid rgba(148,163,184,0.10)",
-                cursor: gameLocked ? "default" : "pointer",
-                transition: "0.2s",
-                background: myPick && teamMatches(myPick.team, game.AwayTeam) ? "linear-gradient(180deg, #1D4ED8 0%, #2563EB 100%)" : "linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%)",
-                color: myPick && teamMatches(myPick.team, game.AwayTeam) ? "#FFFFFF" : "#0F172A",
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "center",
-                boxShadow: myPick && teamMatches(myPick.team, game.AwayTeam) ? "0 10px 18px rgba(37,99,235,0.18)" : "inset 0 1px 0 rgba(255,255,255,0.8)",
-                transform: myPick && teamMatches(myPick.team, game.AwayTeam) ? "translateY(-1px)" : "none",
-              }}
-            >
-              <Image
-                src={game.AwayLogo}
-                alt={`${game.AwayTeam} logo`}
-                width={38}
-                height={38}
-                unoptimized
-                style={{ width: "38px", height: "38px", objectFit: "contain", marginBottom: "4px", alignSelf: "center" }}
-              />
-              <div style={{ fontSize: "11px", fontWeight: "900", display: "flex", justifyContent: "center", alignItems: "center", flexWrap: "wrap", lineHeight: 1.1, minHeight: "24px" }}>
-                {game.AwayRank && game.AwayRank !== "" && (
-                  <span style={{ color: myPick?.team === game.AwayTeam ? "#bfdbfe" : "#94a3b8", marginRight: "1px", fontSize: "9px" }}>
-                    #{game.AwayRank}
-                  </span>
-                )}
-                <span>{game.AwayTeam?.toUpperCase()}</span>
-              </div>
-              {hasValidSpread && (
-                <div style={{ color: myPick?.team === game.AwayTeam ? "#bfdbfe" : "#64748b", marginTop: "2px", fontSize: "10px", fontWeight: "800" }}>
-                  ({(spreadVal * -1) > 0 ? '+' : ''}{spreadVal * -1})
-                </div>
-              )}
-            </button>
-
-            <div style={{ fontWeight: "900", color: "#cbd5e1", fontStyle: "italic", fontSize: '10px', display: 'flex', alignItems: 'center', padding: '0 2px' }}>
-              VS
-            </div>
-
-            {/* HOME TEAM BUTTON */}
-            <button
-              onClick={() => !gameLocked && handleSelect(game.GameID, game.HomeTeam)}
-              disabled={gameLocked}
-              style={{
-                flex: 1,
-                minWidth: 0,
-                padding: "8px 4px 10px",
-                borderRadius: "18px",
-                border: "1px solid rgba(148,163,184,0.10)",
-                cursor: gameLocked ? "default" : "pointer",
-                transition: "0.2s",
-                background: myPick && teamMatches(myPick.team, game.HomeTeam) ? "linear-gradient(180deg, #1D4ED8 0%, #2563EB 100%)" : "linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%)",
-                color: myPick && teamMatches(myPick.team, game.HomeTeam) ? "#FFFFFF" : "#0F172A",
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "center",
-                boxShadow: myPick && teamMatches(myPick.team, game.HomeTeam) ? "0 10px 18px rgba(37,99,235,0.18)" : "inset 0 1px 0 rgba(255,255,255,0.8)",
-                transform: myPick && teamMatches(myPick.team, game.HomeTeam) ? "translateY(-1px)" : "none",
-              }}
-            >
-              <Image
-                src={game.HomeLogo}
-                alt={`${game.HomeTeam} logo`}
-                width={38}
-                height={38}
-                unoptimized
-                style={{ width: "38px", height: "38px", objectFit: "contain", marginBottom: "4px", alignSelf: "center" }}
-              />
-              <div style={{ fontSize: "11px", fontWeight: "900", display: "flex", justifyContent: "center", alignItems: "center", flexWrap: "wrap", lineHeight: 1.1, minHeight: "24px" }}>
-                {game.HomeRank && game.HomeRank !== "" && (
-                  <span style={{ color: myPick?.team === game.HomeTeam ? "#bfdbfe" : "#94a3b8", marginRight: "1px", fontSize: "9px" }}>
-                    #{game.HomeRank}
-                  </span>
-                )}
-                <span>{game.HomeTeam?.toUpperCase()}</span>
-              </div>
-              {hasValidSpread && (
-                <div style={{ color: myPick?.team === game.HomeTeam ? "#bfdbfe" : "#64748b", marginTop: "2px", fontSize: "10px", fontWeight: "800" }}>
-                  ({spreadVal > 0 ? '+' : ''}{spreadVal})
-                </div>
-              )}
-            </button>
-          </div>
-
-          {/* WAGER SECTION */}
-          {myPick && (
-            <div style={{ marginTop: "8px", paddingTop: "5px", borderTop: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "6px" }}>
-              <span style={{ fontSize: "9px", fontWeight: "bold", color: "#94a3b8", minWidth: "42px" }}>
-                {gameLocked ? "FINAL WAGER" : "WAGER"}
-              </span>
-              <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "5px", flex: 1 }}>
-                {[1, 2, 3, 4, 5].map((num) => {
-                  const isSelected = myPick.wager === num;
-                  const isTakenByAnotherPick = usedWagers.has(num) && !isSelected;
-
-                  return (
-                    <button
-                      key={num}
-                      disabled={gameLocked}
-                      onClick={() => handleWager(game.GameID, num)}
-                      style={{
-                        width: "26px", height: "26px", borderRadius: "8px", border: "1px solid #e2e8f0", fontWeight: "bold", fontSize: "10px",
-                        cursor: gameLocked ? "not-allowed" : "pointer",
-                        backgroundColor: isSelected ? "#0f172a" : isTakenByAnotherPick ? "#e2e8f0" : "#fff",
-                        color: isSelected ? "#fff" : isTakenByAnotherPick ? "#94a3b8" : "#64748b",
-                        opacity: gameLocked ? 0.7 : isTakenByAnotherPick ? 0.7 : 1,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        boxShadow: isSelected ? "0 4px 10px rgba(15,23,42,0.18)" : "none",
-                        transform: isSelected ? "translateY(-1px)" : "none",
-                      }}
-                    >
-                      {num}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-      );
-    })}
-  </div>
-)}
-
-        {/* Submit Button Section */}
+        {/* STICKY COMPACT SUBMISSION BAR */}
         <div
           style={{
             position: "sticky",
             bottom: 0,
-            paddingTop: "8px",
-            paddingBottom: "max(8px, env(safe-area-inset-bottom))",
-            background: "linear-gradient(to top, rgba(245,247,250,1) 60%, rgba(245,247,250,0.18) 100%)",
-            backdropFilter: "blur(10px)",
+            paddingTop: "6px",
+            paddingBottom: "max(6px, env(safe-area-inset-bottom))",
+            background: "linear-gradient(to top, rgba(241,245,249,1) 70%, rgba(241,245,249,0) 100%)",
             zIndex: 10,
           }}
         >
           {picks.length > 0 && picks.length < 5 && !submissionClosed && (
-            <div style={{ marginBottom: 8, textAlign: 'center', color: '#b45309', fontSize: 12, fontWeight: 800 }}>
-              Warning: you have selected {picks.length} of 5 picks.
-            </div>
-          )}
-
-          {submissionClosed && (
-            <div style={{ marginBottom: 8, textAlign: 'center', color: '#b91c1c', fontSize: 12, fontWeight: 800 }}>
-              Submissions are closed after noon ET on Saturday.
+            <div style={{ marginBottom: 4, textAlign: 'center', color: '#B45309', fontSize: 11, fontWeight: 800 }}>
+              {picks.length} of 5 selected
             </div>
           )}
 
@@ -655,24 +659,21 @@ export default function Home() {
             onClick={handleSubmit}
             style={{
               width: "100%",
-              padding: "16px 18px",
-              borderRadius: "18px",
-              background: readyToSubmit ? "linear-gradient(180deg, #1D4ED8 0%, #2563EB 100%)" : "#CBD5E1",
+              padding: "14px",
+              borderRadius: "14px",
+              background: readyToSubmit ? "#2563EB" : "#CBD5E1",
               color: "#FFFFFF",
               border: "none",
               fontSize: "15px",
               fontWeight: "900",
               cursor: readyToSubmit ? "pointer" : "not-allowed",
-              boxShadow: readyToSubmit
-                ? "0 12px 20px rgba(37, 99, 235, 0.28)"
-                : "none",
+              boxShadow: readyToSubmit ? "0 4px 12px rgba(37, 99, 235, 0.3)" : "none",
             }}
           >
-            {submitting
-              ? "SENDING..."
-              : `LOCK IN PICKS (${picks.length}/5)`}
+            {submitting ? "SENDING..." : `LOCK IN PICKS (${picks.length}/5)`}
           </button>
         </div>
+
       </div>
     </div>
   );
