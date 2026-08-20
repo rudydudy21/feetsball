@@ -274,6 +274,30 @@ export default function Home() {
       return;
     }
 
+    const sortedPicks = [...uniquePicks].sort((a, b) => b.wager - a.wager);
+    const summaryLines = sortedPicks.map((pick) => {
+      const game = games.find((g) => matchesGame(pick, g.GameID));
+      let spreadBadge = '';
+      if (game && game.Spread !== undefined && game.Spread !== null && String(game.Spread).trim() !== '') {
+        const rawSpread = String(game.Spread).trim();
+        const cleaned = rawSpread.replace(/[^0-9.+-]/g, '');
+        const spreadNum = Number(cleaned);
+        if (!Number.isNaN(spreadNum)) {
+          const isAway = teamMatches(pick.team, game.AwayTeam);
+          const pickSpreadVal = isAway ? spreadNum * -1 : spreadNum;
+          if (pickSpreadVal > 0) spreadBadge = ` (+${pickSpreadVal})`;
+          else if (pickSpreadVal === 0) spreadBadge = ' (0)';
+          else spreadBadge = ` (${pickSpreadVal})`;
+        } else {
+          spreadBadge = ` (${rawSpread})`;
+        }
+      }
+      const pointsLabel = pick.wager === 1 ? 'point' : 'points';
+      return `${pick.wager} ${pointsLabel} - ${pick.team}${spreadBadge}`;
+    });
+
+    const summaryText = summaryLines.join('\n');
+
     setSubmitting(true);
     try {
       const res = await fetch("/api/submit-picks", {
@@ -283,7 +307,7 @@ export default function Home() {
       });
 
       if (res.ok) {
-        alert("🏆 PICKS LOCKED IN! Good luck this week.");
+        alert(`🏆 PICKS LOCKED IN!\n\n${summaryText}\n\nGood luck this week.`);
         setPicks([]);
       } else {
         const err = await res.json();
@@ -432,7 +456,14 @@ export default function Home() {
 
               const kickoff = new Date(game.Kickoff_Time);
               const formattedTime = !isNaN(kickoff.getTime())
-                ? kickoff.toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit', hour12: true })
+                ? kickoff.toLocaleString('en-US', {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true,
+                  })
                 : game.Kickoff_Time;
 
               const spreadVal = Number(game.Spread);
