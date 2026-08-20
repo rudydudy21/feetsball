@@ -12,16 +12,31 @@ export default function WeeklyLeaderboard() {
   const [week, setWeek] = useState("1");
   const [data, setData] = useState<WeeklyUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [picksHidden, setPicksHidden] = useState(false);
 
   useEffect(() => {
     setLoading(true);
+    setPicksHidden(false);
     fetch(`/api/get-weekly-results?week=${week}`)
       .then((res) => res.json())
       .then((resData) => {
-        setData(Array.isArray(resData) ? resData : []);
+        if (resData && !Array.isArray(resData) && resData.picksHidden) {
+          setPicksHidden(true);
+          setData([]);
+        } else if (Array.isArray(resData)) {
+          setPicksHidden(false);
+          setData(resData);
+        } else if (resData && Array.isArray(resData.data)) {
+          setPicksHidden(false);
+          setData(resData.data);
+        } else {
+          setPicksHidden(false);
+          setData([]);
+        }
         setLoading(false);
       })
       .catch(() => {
+        setPicksHidden(false);
         setData([]);
         setLoading(false);
       });
@@ -98,6 +113,23 @@ export default function WeeklyLeaderboard() {
         {loading ? (
           <div style={{ padding: "30px", textAlign: "center", color: "#64748b", fontWeight: "700", fontSize: "14px" }}>
             Loading Week {week} results...
+          </div>
+        ) : picksHidden ? (
+          <div style={{
+            background: "#FFFFFF",
+            borderRadius: "16px",
+            padding: "36px 20px",
+            textAlign: "center",
+            border: "1px solid #E2E8F0",
+            boxShadow: "0 2px 4px rgba(15, 23, 42, 0.04)",
+          }}>
+            <div style={{ fontSize: "32px", marginBottom: "8px" }}>🔒</div>
+            <div style={{ fontSize: "15px", fontWeight: "900", color: "#0F172A", marginBottom: "4px" }}>
+              Picks Locked & Hidden
+            </div>
+            <div style={{ fontSize: "13px", fontWeight: "600", color: "#64748B", maxWidth: "340px", margin: "0 auto" }}>
+              Everyone&apos;s picks for Week {week} will be revealed after 12:00 PM ET on Saturday.
+            </div>
           </div>
         ) : data.length === 0 ? (
           <div style={{

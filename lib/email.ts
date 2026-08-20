@@ -50,6 +50,24 @@ export async function sendRegistrationConfirmation({
   }
 }
 
+export interface PickConfirmationItem {
+  gameId?: string;
+  team: string;
+  wager: number;
+  spread?: string | number | null;
+}
+
+export function formatPickSpread(spread: string | number | null | undefined): string {
+  if (spread === null || spread === undefined) return '';
+  const trimmed = String(spread).trim();
+  if (!trimmed) return '';
+  const num = Number(trimmed);
+  if (!Number.isNaN(num)) {
+    return num > 0 ? `+${num}` : `${num}`;
+  }
+  return trimmed;
+}
+
 export async function sendPicksConfirmation({
   email,
   username,
@@ -59,16 +77,28 @@ export async function sendPicksConfirmation({
   email: string;
   username: string;
   week: string;
-  picks: Array<{ gameId: string; team: string; wager: number }>;
+  picks: PickConfirmationItem[];
 }) {
   if (!resend) {
     console.warn('RESEND_API_KEY not configured; skipping picks confirmation email.');
     return { success: false, skipped: true };
   }
 
-  const summaryHtml = picks
-    .map((pick) => `<li><strong>${pick.team}</strong> — Wager: ${pick.wager} (${pick.gameId})</li>`)
-    .join('');
+  const sortedPicks = [...picks].sort((a, b) => (Number(b.wager) || 0) - (Number(a.wager) || 0));
+
+  const formatPickItem = (pick: PickConfirmationItem) => {
+    const formattedSpread = formatPickSpread(pick.spread);
+    const spreadBadge = formattedSpread ? ` (${formattedSpread})` : '';
+    const pointsLabel = pick.wager === 1 ? 'point' : 'points';
+    return {
+      html: `<li><strong>${pick.wager} ${pointsLabel}</strong> - ${pick.team}${spreadBadge}</li>`,
+      text: `${pick.wager} ${pointsLabel} - ${pick.team}${spreadBadge}`,
+    };
+  };
+
+  const formattedItems = sortedPicks.map(formatPickItem);
+  const summaryHtml = formattedItems.map((item) => item.html).join('');
+  const summaryText = formattedItems.map((item) => item.text).join('\n');
 
   console.log('Attempting picks email send', {
     from: emailFrom,
@@ -92,7 +122,7 @@ export async function sendPicksConfirmation({
           <p>Good luck this week.</p>
         </div>
       `,
-      text: `Picks locked in for ${username} for Week ${week}.\n\n${picks.map((pick) => `${pick.team} — Wager: ${pick.wager} (${pick.gameId})`).join('\n')}`,
+      text: `Picks locked in for ${username} for Week ${week}.\n\n${summaryText}\n\nGood luck this week.`,
     });
 
     console.log('Resend picks email result', result);
@@ -102,3 +132,4 @@ export async function sendPicksConfirmation({
     return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
+

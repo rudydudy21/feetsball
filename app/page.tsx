@@ -43,7 +43,8 @@ const getEasternNow = () => new Date(new Date().toLocaleString('en-US', { timeZo
 
 const isPastSaturdayNoonET = () => {
   const now = getEasternNow();
-  return now.getDay() === 6 && now.getHours() >= 12;
+  const day = now.getDay();
+  return (day === 6 && now.getHours() >= 12) || day === 0;
 };
 
 const isGameStarted = (kickoff: string | undefined) => {

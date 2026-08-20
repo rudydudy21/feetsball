@@ -2,11 +2,29 @@ import { getUserByUsername, getWeeklySlate, submitUserPicks } from '@/lib/google
 import { sendPicksConfirmation } from '@/lib/email';
 import { NextResponse } from 'next/server';
 
+const normalizeGameId = (value: unknown): string =>
+  String(value ?? '')
+    .trim()
+    .replace(/\.0$/, '')
+    .replace(/^0+(?=\d)/, '');
+
+const normalizeTeamName = (value: unknown): string =>
+  String(value ?? '')
+    .trim()
+    .replace(/['’]/g, '')
+    .replace(/[^a-zA-Z0-9\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+
+const teamMatches = (savedTeam: string, slateTeam: string) =>
+  normalizeTeamName(savedTeam) === normalizeTeamName(slateTeam);
+
 const getEasternNow = () => new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
 
 const isPastSaturdayNoonET = () => {
   const now = getEasternNow();
-  return now.getDay() === 6 && now.getHours() >= 12;
+  const day = now.getDay();
+  return (day === 6 && now.getHours() >= 12) || day === 0;
 };
 
 const isGameStarted = (kickoff: string | undefined) => {
@@ -51,7 +69,7 @@ export async function POST(request: Request) {
 
     const slate = await getWeeklySlate();
     const startedGames = validPicks.filter((pick) => {
-      const game = slate.find((entry) => String(entry.GameID) === String(pick.gameId));
+      const game = slate.find((entry) => normalizeGameId(entry.GameID) === normalizeGameId(pick.gameId));
       return game && isGameStarted(game.Kickoff_Time);
     });
 
@@ -67,11 +85,44 @@ export async function POST(request: Request) {
       console.log('Picks email lookup', { username, emailExists: !!email, week: result.week });
 
       if (email) {
+        const picksForEmail = validPicks.map((pick) => {
+          const game = slate.find(
+            (entry) => normalizeGameId(entry.GameID) === normalizeGameId(pick.gameId),
+          );
+
+          let spread: string | number | null = null;
+          if (game && game.Spread !== undefined && game.Spread !== null && String(game.Spread).trim() !== '') {
+            const rawSpread = String(game.Spread).trim();
+            const cleaned = rawSpread.replace(/[^0-9.+-]/g, '');
+            const spreadNum = Number(cleaned);
+            if (!Number.isNaN(spreadNum)) {
+              const isAway = teamMatches(pick.team, String(game.AwayTeam ?? ''));
+              const pickSpreadVal = isAway ? spreadNum * -1 : spreadNum;
+              if (pickSpreadVal > 0) {
+                spread = `+${pickSpreadVal}`;
+              } else if (pickSpreadVal === 0) {
+                spread = '0';
+              } else {
+                spread = `${pickSpreadVal}`;
+              }
+            } else {
+              spread = rawSpread;
+            }
+          }
+
+          return {
+            gameId: pick.gameId,
+            team: pick.team,
+            wager: pick.wager,
+            spread,
+          };
+        });
+
         const emailResult = await sendPicksConfirmation({
           email,
           username,
           week: String(result.week),
-          picks: validPicks,
+          picks: picksForEmail,
         });
         console.log('Picks email result', emailResult);
       }

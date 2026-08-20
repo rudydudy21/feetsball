@@ -295,9 +295,35 @@ export async function submitUserPicks(
   return { success: true, week, submitted: picks.length };
 }
 
+export const getEasternNow = () =>
+  new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+
+export const isPastSaturdayNoonET = () => {
+  const now = getEasternNow();
+  const day = now.getDay();
+  return (day === 6 && now.getHours() >= 12) || day === 0;
+};
+
 export async function getWeeklyResultsForWeek(week: string) {
   const weekNum = Number(week);
   const isBowlWeek = weekNum >= 12 && weekNum <= 14;
+
+  const currentWeek = await getCurrentWeek().catch(() => '1');
+  const currentWeekNum = Number(currentWeek);
+
+  const isPastSatNoon = isPastSaturdayNoonET();
+  const shouldHidePicks =
+    Number.isFinite(currentWeekNum) &&
+    (weekNum > currentWeekNum || (weekNum === currentWeekNum && !isPastSatNoon));
+
+  if (shouldHidePicks) {
+    return {
+      picksHidden: true,
+      week,
+      currentWeek,
+      data: [],
+    };
+  }
 
   const weeklySlate = await getWeeklySlate();
   const slateByGameId = new Map(
