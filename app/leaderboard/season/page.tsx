@@ -12,11 +12,11 @@ type ScoreEntry = { username: string; week: number; points: number };
 
 const resolveWeeklyWinner = (week: number, tiedUsers: string[], allScores: ScoreEntry[], maxWeek: number): { winner: string; method: string } => {
   if (tiedUsers.length === 1) {
-    return { winner: tiedUsers[0], method: week > 1 ? `Tiebreaker (Week ${week})` : 'Outright' };
+    return { winner: tiedUsers[0], method: week > 1 ? `Tiebreaker (W${week})` : 'Outright' };
   }
 
   if (week >= maxWeek) {
-    return { winner: tiedUsers.join(' & '), method: 'Split Pot (Season End)' };
+    return { winner: tiedUsers.join(' & '), method: 'Split Pot' };
   }
 
   const nextWeek = week + 1;
@@ -41,10 +41,21 @@ const resolveWeeklyWinner = (week: number, tiedUsers: string[], allScores: Score
 
 export default function SeasonLeaderboard() {
   const [data, setData] = useState<UserData[]>([]);
+  const [loading, setLoading] = useState(true);
   const weeks = Array.from({ length: 14 }, (_, i) => i + 1);
 
   useEffect(() => {
-    fetch('/api/get-season-results').then(res => res.json()).then(setData);
+    setLoading(true);
+    fetch('/api/get-season-results')
+      .then((res) => res.json())
+      .then((json) => {
+        setData(Array.isArray(json) ? json : []);
+        setLoading(false);
+      })
+      .catch(() => {
+        setData([]);
+        setLoading(false);
+      });
   }, []);
 
   const weeklyWinners = useMemo(() => {
@@ -78,79 +89,178 @@ export default function SeasonLeaderboard() {
   }, [data, weeks]);
 
   return (
-    <div style={{ padding: 'max(12px, env(safe-area-inset-top)) 12px max(18px, env(safe-area-inset-bottom))', background: 'linear-gradient(180deg, #F5F7FA 0%, #EEF2F6 100%)', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif', WebkitFontSmoothing: 'antialiased' }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <div style={{ textAlign: 'center' }}>
-          <h1 style={{ fontSize: 'clamp(1.9rem, 7vw, 3rem)', fontWeight: '900', letterSpacing: '-2px', margin: '0', lineHeight: 1, color: '#0f172a' }}>FEETSBALL</h1>
-          <p style={{ color: '#64748b', fontWeight: 'bold', fontSize: '10px', letterSpacing: '3px', margin: '5px 0 0' }}>2026 CHALLENGE</p>
+    <div
+      style={{
+        background: "#F1F5F9",
+        minHeight: "100vh",
+        padding: "max(8px, env(safe-area-inset-top)) 8px max(14px, env(safe-area-inset-bottom))",
+        color: "#0F172A",
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif",
+        WebkitFontSmoothing: "antialiased",
+      }}
+    >
+      <div style={{ maxWidth: "700px", margin: "0 auto", width: "100%", display: "flex", flexDirection: "column", gap: "8px" }}>
+        
+        {/* COMPACT BRAND HEADER */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 4px 0" }}>
+          <div>
+            <h1 style={{ fontSize: "24px", fontWeight: "900", letterSpacing: "-1px", margin: 0, lineHeight: 1 }}>
+              FEETSBALL
+            </h1>
+            <span style={{ color: "#64748b", fontWeight: "800", fontSize: "10px", letterSpacing: "2px" }}>
+              2026 CHALLENGE
+            </span>
+          </div>
+
+          <nav style={{ display: 'flex', gap: '4px', background: 'rgba(15,23,42,0.06)', borderRadius: '999px', padding: '3px' }}>
+            <Link href="/" style={{ color: '#475569', textDecoration: 'none', borderRadius: '999px', padding: '6px 10px', fontSize: '11px', fontWeight: '800' }}>PICKS</Link>
+            <Link href="/leaderboard/weekly" style={{ color: '#475569', textDecoration: 'none', borderRadius: '999px', padding: '6px 10px', fontSize: '11px', fontWeight: '800' }}>WEEKLY</Link>
+            <Link href="/leaderboard/season" style={{ color: '#0F172A', textDecoration: 'none', background: '#FFFFFF', borderRadius: '999px', padding: '6px 12px', fontSize: '11px', fontWeight: '800', boxShadow: '0 1px 2px rgba(15,23,42,0.08)' }}>SEASON</Link>
+          </nav>
         </div>
 
-        <nav style={{ display: 'flex', justifyContent: 'center', gap: '6px', fontSize: '11px', fontWeight: '800', background: 'rgba(15,23,42,0.04)', borderRadius: '999px', padding: '4px', alignSelf: 'center', width: 'fit-content', border: '1px solid rgba(148,163,184,0.18)' }}>
-          <Link href="/" style={{ color: '#475569', textDecoration: 'none', borderRadius: '999px', padding: '7px 12px' }}>PICKS</Link>
-          <Link href="/leaderboard/weekly" style={{ color: '#475569', textDecoration: 'none', borderRadius: '999px', padding: '7px 12px' }}>WEEKLY</Link>
-          <Link href="/leaderboard/season" style={{ color: '#0F172A', textDecoration: 'none', background: '#FFFFFF', borderRadius: '999px', padding: '7px 12px', boxShadow: '0 1px 2px rgba(15,23,42,0.06)' }}>SEASON</Link>
-        </nav>
-
-        <h1 style={{ textAlign: 'center', fontWeight: '900', fontSize: '26px', margin: '0' }}>SEASON STANDINGS</h1>
-        <p style={{ textAlign: 'center', color: '#64748b', fontSize: '12px', margin: '0 0 4px' }}>NET POINTS TOTALS BY WEEK</p>
-
-        <div style={{ marginBottom: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <h2 style={{ fontSize: '12px', color: '#64748b', letterSpacing: '2px', margin: '0', textTransform: 'uppercase' }}>Weekly Champions</h2>
-          {weeklyWinners.map((w) => (
-            <div key={w.week} style={{
-              backgroundColor: '#fff',
-              padding: '10px 12px',
-              borderRadius: '12px',
-              display: 'flex',
-              justifyContent: 'space-between',
-              gap: '8px',
-              border: '1px solid #e2e8f0',
-              alignItems: 'center',
-              fontSize: '12px'
-            }}>
-              <span style={{ fontWeight: '800', color: '#94a3b8' }}>WEEK {w.week}</span>
-              <span style={{ fontWeight: '900', color: '#0f172a', textAlign: 'center', flex: 1 }}>{w.winner.toUpperCase()}</span>
-              <span style={{ fontSize: '9px', color: w.status.includes('Awaiting') ? '#f59e0b' : '#10b981', textAlign: 'right' }}>
-                {w.status}
-              </span>
-            </div>
-          ))}
+        {/* SECTION HEADER */}
+        <div style={{ padding: "4px 4px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: "12px", fontWeight: "900", color: "#64748b", letterSpacing: "1px", textTransform: "uppercase" }}>
+            Season Standings
+          </span>
+          <span style={{ fontSize: "11px", fontWeight: "800", color: "#94a3b8" }}>
+            Net Points by Week
+          </span>
         </div>
 
-        <div style={{ overflowX: 'auto', backgroundColor: '#fff', borderRadius: '18px', boxShadow: '0 8px 24px rgba(15,23,42,0.08)', border: '1px solid #e2e8f0' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#f8fafc', borderBottom: '2px solid #f1f5f9' }}>
-                <th style={{ padding: '12px 10px', textAlign: 'left', position: 'sticky', left: 0, backgroundColor: '#f8fafc', zIndex: 10, fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748b' }}>User</th>
-                {weeks.map(w => <th key={w} style={{ padding: '8px 6px', textAlign: 'center', fontSize: '10px', color: '#64748b' }}>W{w}</th>)}
-                <th style={{ padding: '12px 10px', textAlign: 'right', backgroundColor: '#eff6ff', fontWeight: '900', fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748b' }}>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((user: UserData) => (
-                <tr key={user.username} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  <td style={{ padding: '12px 10px', fontWeight: '800', position: 'sticky', left: 0, backgroundColor: '#fff' }}>{user.username}</td>
-                  {weeks.map(w => {
-                    const score = user.weeks[w] || 0;
-                    return (
-                      <td key={w} style={{
-                        padding: '8px 6px',
-                        textAlign: 'center',
-                        color: score > 0 ? '#166534' : score < 0 ? '#991b1b' : '#cbd5e1',
-                        fontWeight: score !== 0 ? '800' : 'normal'
-                      }}>
-                        {score !== 0 ? score : '-'}
-                      </td>
-                    );
-                  })}
-                  <td style={{ padding: '12px 10px', textAlign: 'right', fontWeight: '900', backgroundColor: '#eff6ff', color: user.total >= 0 ? '#2563eb' : '#991b1b' }}>
-                    {user.total}
-                  </td>
-                </tr>
+        {/* WEEKLY CHAMPIONS LIST */}
+        {weeklyWinners.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            <span style={{ fontSize: "10px", fontWeight: "900", color: "#64748b", letterSpacing: "1px", textTransform: "uppercase", paddingLeft: "4px" }}>
+              Weekly Winners
+            </span>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "6px" }}>
+              {weeklyWinners.map((w) => (
+                <div
+                  key={w.week}
+                  style={{
+                    backgroundColor: '#FFFFFF',
+                    padding: '8px 10px',
+                    borderRadius: '12px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    border: '1px solid #E2E8F0',
+                    boxShadow: '0 1px 3px rgba(15,23,42,0.04)',
+                    gap: '6px',
+                  }}
+                >
+                  <span style={{ fontWeight: '900', color: '#64748B', fontSize: '11px' }}>
+                    W{w.week}
+                  </span>
+                  <span style={{ fontWeight: '900', color: '#0F172A', fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center', flex: 1 }}>
+                    {w.winner.toUpperCase()}
+                  </span>
+                  <span style={{
+                    fontSize: '9px',
+                    fontWeight: '800',
+                    color: w.status.includes('Pending') || w.status.includes('Awaiting') ? '#D97706' : '#166534',
+                    backgroundColor: w.status.includes('Pending') || w.status.includes('Awaiting') ? '#FEF3C7' : '#DCFCE7',
+                    padding: '2px 6px',
+                    borderRadius: '6px',
+                    flexShrink: 0,
+                  }}>
+                    {w.status}
+                  </span>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          </div>
+        )}
+
+        {/* SEASON GRID CARD */}
+        {loading ? (
+          <div style={{ padding: "30px", textAlign: "center", color: "#64748b", fontWeight: "700", fontSize: "14px" }}>
+            Loading season standings...
+          </div>
+        ) : data.length === 0 ? (
+          <div style={{
+            background: "#FFFFFF",
+            borderRadius: "16px",
+            padding: "24px 16px",
+            textAlign: "center",
+            color: "#64748b",
+            fontWeight: "700",
+            fontSize: "13px",
+            border: "1px solid #E2E8F0",
+            boxShadow: "0 2px 4px rgba(15, 23, 42, 0.04)",
+          }}>
+            No season data recorded yet.
+          </div>
+        ) : (
+          <div style={{
+            overflowX: 'auto',
+            backgroundColor: '#FFFFFF',
+            borderRadius: '16px',
+            boxShadow: '0 2px 4px rgba(15, 23, 42, 0.04)',
+            border: '1px solid #E2E8F0',
+            WebkitOverflowScrolling: 'touch',
+          }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', minWidth: '580px' }}>
+              <thead>
+                <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+                  <th style={{ padding: '8px 10px', textAlign: 'left', position: 'sticky', left: 0, backgroundColor: '#F8FAFC', zIndex: 2, fontSize: '10px', fontWeight: '900', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748B' }}>
+                    User
+                  </th>
+                  {weeks.map((w) => (
+                    <th key={w} style={{ padding: '8px 4px', textAlign: 'center', fontSize: '10px', fontWeight: '900', color: '#64748B' }}>
+                      W{w}
+                    </th>
+                  ))}
+                  <th style={{ padding: '8px 10px', textAlign: 'right', backgroundColor: '#F1F5F9', fontWeight: '900', fontSize: '10px', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#0F172A', position: 'sticky', right: 0, zIndex: 2 }}>
+                    Total
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.map((user: UserData, idx: number) => (
+                  <tr key={user.username} style={{ borderBottom: idx === data.length - 1 ? 'none' : '1px solid #F1F5F9' }}>
+                    <td style={{ padding: '8px 10px', fontWeight: '900', position: 'sticky', left: 0, backgroundColor: '#FFFFFF', zIndex: 1, whiteSpace: 'nowrap', color: '#0F172A', fontSize: '13px' }}>
+                      {user.username}
+                    </td>
+                    {weeks.map((w) => {
+                      const score = user.weeks[w] || 0;
+                      return (
+                        <td
+                          key={w}
+                          style={{
+                            padding: '6px 4px',
+                            textAlign: 'center',
+                            color: score > 0 ? '#166534' : score < 0 ? '#DC2626' : '#CBD5E1',
+                            fontWeight: score !== 0 ? '900' : 'normal',
+                            fontSize: '12px',
+                          }}
+                        >
+                          {score !== 0 ? score : '-'}
+                        </td>
+                      );
+                    })}
+                    <td style={{
+                      padding: '8px 10px',
+                      textAlign: 'right',
+                      fontWeight: '900',
+                      backgroundColor: '#F8FAFC',
+                      color: user.total >= 0 ? '#2563EB' : '#DC2626',
+                      fontSize: '13px',
+                      position: 'sticky',
+                      right: 0,
+                      zIndex: 1,
+                    }}>
+                      {user.total}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
       </div>
     </div>
   );
