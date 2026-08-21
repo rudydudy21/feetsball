@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from 'react';
 
-const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'feetsball-admin';
-
 const buttonBase = {
   border: 'none',
   borderRadius: 12,
@@ -12,62 +10,79 @@ const buttonBase = {
   fontWeight: 700,
   cursor: 'pointer',
   color: '#fff',
-};
+} as const;
 
 export default function AdminPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string>('');
   const [passwordInput, setPasswordInput] = useState('');
   const [authorized, setAuthorized] = useState(false);
+  const [verifying, setVerifying] = useState(false);
 
+  // On mount, do a cheap probe to see if a valid session cookie already exists.
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const saved = localStorage.getItem('feetsball_admin_password');
-    if (saved === ADMIN_PASSWORD) {
-      setAuthorized(true);
-    }
+    fetch('/api/admin/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: '' }) })
+      // A 401 means no valid cookie yet; a 200 would mean we're already authed.
+      // We probe by sending an empty password; the only way it returns 200 is if the
+      // cookie was already set by a previous valid login.
+      .then((res) => { if (res.ok) setAuthorized(true); })
+      .catch(() => {});
   }, []);
 
-  const runAction = async (path: string, label: string) => {
-    setBusy(label);
-    setMessage('');
-
-    try {
-      const res = await fetch(path, {
-        method: 'POST',
-        headers: {
-          'x-admin-password': ADMIN_PASSWORD,
-        },
-      });
-      const data = await res.json();
-
-      if (!res.ok || data.success === false) {
-        throw new Error(data.error || 'Action failed');
-      }
-
-      setMessage(`${label} completed successfully. ${JSON.stringify(data)}`);
-    } catch (error: unknown) {
-      setMessage(`Failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const unlock = () => {
+  const unlock = async () => {
     const candidate = passwordInput.trim();
     if (!candidate) {
       setMessage('Enter the admin password to continue.');
       return;
     }
 
-    if (candidate === ADMIN_PASSWORD) {
-      localStorage.setItem('feetsball_admin_password', candidate);
-      setAuthorized(true);
-      setMessage('');
-      return;
-    }
+    setVerifying(true);
+    setMessage('');
+    try {
+      const res = await fetch('/api/admin/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: candidate }),
+      });
 
-    setMessage('Incorrect admin password.');
+      if (res.ok) {
+        setAuthorized(true);
+        setMessage('');
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setMessage((data as { error?: string }).error || 'Incorrect password.');
+      }
+    } catch {
+      setMessage('Network error. Please try again.');
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const runAction = async (path: string, label: string) => {
+    setBusy(label);
+    setMessage('');
+
+    try {
+      // Credentials (session cookie) are sent automatically by the browser.
+      const res = await fetch(path, { method: 'POST' });
+      const data = await res.json();
+
+      if (!res.ok || (data as { success?: boolean }).success === false) {
+        if (res.status === 401) {
+          setAuthorized(false);
+          setMessage('Session expired. Please log in again.');
+          return;
+        }
+        throw new Error((data as { error?: string }).error || 'Action failed');
+      }
+
+      setMessage(`${label} completed successfully.\n${JSON.stringify(data, null, 2)}`);
+    } catch (error: unknown) {
+      setMessage(`Failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setBusy(null);
+    }
   };
 
   if (!authorized) {
@@ -101,6 +116,7 @@ export default function AdminPage() {
               type="password"
               value={passwordInput}
               onChange={(e) => setPasswordInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') void unlock(); }}
               placeholder="Admin password"
               style={{
                 width: '100%',
@@ -113,25 +129,27 @@ export default function AdminPage() {
                 background: 'rgba(255,255,255,0.75)',
                 boxShadow: 'inset 0 1px 1px rgba(15,23,42,0.04)',
                 marginBottom: '10px',
+                boxSizing: 'border-box',
               }}
             />
 
             <button
-              onClick={unlock}
+              onClick={() => void unlock()}
+              disabled={verifying}
               style={{
                 width: '100%',
                 padding: '16px 18px',
                 borderRadius: '18px',
-                background: 'linear-gradient(180deg, #0f172a 0%, #111827 100%)',
+                background: verifying ? '#94a3b8' : 'linear-gradient(180deg, #0f172a 0%, #111827 100%)',
                 color: '#FFFFFF',
                 border: 'none',
                 fontSize: '15px',
                 fontWeight: 900,
-                cursor: 'pointer',
+                cursor: verifying ? 'not-allowed' : 'pointer',
                 boxShadow: '0 12px 20px rgba(15, 23, 42, 0.18)',
               }}
             >
-              UNLOCK ADMIN
+              {verifying ? 'VERIFYING...' : 'UNLOCK ADMIN'}
             </button>
 
             {message ? (
@@ -179,7 +197,7 @@ export default function AdminPage() {
               border: '1px solid rgba(148,163,184,0.12)',
               boxShadow: '0 10px 18px rgba(15, 23, 42, 0.12)',
             }}
-            onClick={() => runAction('/api/admin/run-weekly-setup', 'Weekly Setup')}
+            onClick={() => void runAction('/api/admin/run-weekly-setup', 'Weekly Setup')}
             disabled={busy !== null}
           >
             {busy === 'Weekly Setup' ? 'RUNNING WEEKLY SETUP...' : 'RUN WEEKLY SETUP'}
@@ -192,7 +210,7 @@ export default function AdminPage() {
               border: '1px solid rgba(148,163,184,0.12)',
               boxShadow: '0 10px 18px rgba(37, 99, 235, 0.18)',
             }}
-            onClick={() => runAction('/api/admin/update-live-scores', 'Live Score Refresh')}
+            onClick={() => void runAction('/api/admin/update-live-scores', 'Live Score Refresh')}
             disabled={busy !== null}
           >
             {busy === 'Live Score Refresh' ? 'REFRESHING LIVE SCORES...' : 'REFRESH LIVE SCORES'}
@@ -205,7 +223,7 @@ export default function AdminPage() {
               border: '1px solid rgba(148,163,184,0.12)',
               boxShadow: '0 10px 18px rgba(5, 150, 105, 0.18)',
             }}
-            onClick={() => runAction('/api/admin/archive-current-week', 'Archive Current Week')}
+            onClick={() => void runAction('/api/admin/archive-current-week', 'Archive Current Week')}
             disabled={busy !== null}
           >
             {busy === 'Archive Current Week' ? 'ARCHIVING CURRENT WEEK...' : 'ARCHIVE CURRENT WEEK'}

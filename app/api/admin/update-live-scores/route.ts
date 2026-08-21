@@ -1,16 +1,10 @@
 import { updateLiveScores } from '@/lib/googleSheets';
-import { NextResponse } from 'next/server';
+import { isAuthorized } from '@/lib/adminAuth';
+import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'feetsball-admin';
-
-const isAuthorized = (request: Request) => {
-  const headerKey = request.headers.get('x-admin-password') || '';
-  return headerKey === ADMIN_PASSWORD;
-};
-
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   if (!isAuthorized(request)) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
@@ -24,6 +18,6 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   return GET(request);
 }

@@ -140,10 +140,13 @@ export default function Home() {
   const [games, setGames] = useState<SlateGame[]>([]);
   const [picks, setPicks] = useState<PickEntry[]>([]);
   const [userInfo, setUserInfo] = useState({ username: "", pin: "" });
+  const [loggedIn, setLoggedIn] = useState(false);
+  const [loggedInUsername, setLoggedInUsername] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loginLoading, setLoginLoading] = useState(false);
 
+  // Load slate
   useEffect(() => {
     fetch("/api/get-slate")
       .then((res) => res.json())
@@ -156,6 +159,23 @@ export default function Home() {
         setLoading(false);
       });
   }, []);
+
+  // Restore session from cookie on mount
+  useEffect(() => {
+    fetch("/api/auth/session")
+      .then((res) => res.json())
+      .then((data: { loggedIn?: boolean; username?: string; picks?: PickEntry[] }) => {
+        if (data?.loggedIn && data.username) {
+          setLoggedIn(true);
+          setLoggedInUsername(data.username);
+          if (Array.isArray(data.picks) && data.picks.length > 0) {
+            setPicks(dedupePicks(normalizeExistingPicks(data.picks)).slice(0, 5));
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
+
 
   const handleSelect = (gameId: string, team: string) => {
     setPicks((currentPicks) => {
@@ -224,31 +244,40 @@ export default function Home() {
     setLoginLoading(true);
 
     try {
-      const res = await fetch('/api/get-my-picks', {
+      const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, pin }),
       });
 
       if (!res.ok) {
-        setPicks([]);
-        alert('❌ Could not load your picks. Check your username and PIN.');
+        const err = await res.json().catch(() => ({}));
+        alert('❌ ' + ((err as { error?: string }).error || 'Could not log in. Check your username and PIN.'));
         return;
       }
 
-      const payload = await res.json();
-      const normalized = dedupePicks(normalizeExistingPicks(payload)).slice(0, 5);
+      const data = await res.json() as { username: string; picks: PickEntry[] };
+      setLoggedIn(true);
+      setLoggedInUsername(data.username);
+      setUserInfo({ username: "", pin: "" });
+
+      const normalized = dedupePicks(normalizeExistingPicks(data.picks)).slice(0, 5);
       setPicks(normalized);
-      if (normalized.length === 0) {
-        alert('No saved picks found for that username/PIN.');
-      }
     } catch {
-      setPicks([]);
       alert('❌ Could not reach the server.');
     } finally {
       setLoginLoading(false);
     }
   };
+
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+    setLoggedIn(false);
+    setLoggedInUsername("");
+    setPicks([]);
+    setUserInfo({ username: "", pin: "" });
+  };
+
 
   const handleSubmit = async () => {
     if (isPastSaturdayNoonET()) {
@@ -303,7 +332,7 @@ export default function Home() {
       const res = await fetch("/api/submit-picks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userInfo, picks }),
+        body: JSON.stringify({ picks }),
       });
 
       if (res.ok) {
@@ -311,7 +340,13 @@ export default function Home() {
         setPicks([]);
       } else {
         const err = await res.json();
-        alert("❌ Error: " + (err.error || "Submission failed"));
+        if ((err as { error?: string }).error?.includes('authenticated')) {
+          setLoggedIn(false);
+          setLoggedInUsername("");
+          alert('❌ Session expired. Please log in again.');
+        } else {
+          alert("❌ Error: " + ((err as { error?: string }).error || "Submission failed"));
+        }
       }
     } catch {
       alert("❌ Critical Error: Could not reach the server.");
@@ -328,8 +363,7 @@ export default function Home() {
     picks.length <= 5 &&
     picks.every((p) => p.wager > 0) &&
     validWagerSet &&
-    userInfo.username.length > 0 &&
-    userInfo.pin.length === 4 &&
+    loggedIn &&
     !submissionClosed;
   const showLoadingState = loading && games.length === 0;
 
@@ -364,85 +398,90 @@ export default function Home() {
           </nav>
         </div>
 
-        {/* COMPACT CREDENTIALS BAR */}
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void handleLogin();
-          }}
-          style={{ display: "flex", gap: "6px", alignItems: "stretch", width: "100%" }}
-        >
-          <input
-            placeholder="Username"
-            value={userInfo.username}
-            style={{
-              flex: 2,
-              minWidth: 0,
-              padding: "9px 12px",
-              borderRadius: "12px",
-              border: "1px solid #cbd5e1",
-              outline: "none",
-              fontWeight: "700",
-              fontSize: "14px",
-              background: "#FFFFFF",
-            }}
-            onChange={(e) =>
-              setUserInfo((prev) => ({ ...prev, username: normalizeUsernameInput(e.target.value) }))
-            }
-          />
-          <input
-            placeholder="PIN"
-            type="password"
-            maxLength={4}
-            value={userInfo.pin}
-            style={{
-              flex: 1,
-              minWidth: 0,
-              padding: "9px 6px",
-              borderRadius: "12px",
-              border: "1px solid #cbd5e1",
-              textAlign: "center",
-              fontWeight: "700",
-              fontSize: "14px",
-              background: "#FFFFFF",
-            }}
-            onChange={(e) => setUserInfo((prev) => ({ ...prev, pin: e.target.value }))}
-          />
-          <button
-            type="submit"
-            disabled={loginLoading || !userInfo.username || userInfo.pin.length !== 4}
-            style={{
-              padding: "0 12px",
-              borderRadius: "12px",
-              border: "none",
-              background: !userInfo.username || userInfo.pin.length !== 4 ? "#94a3b8" : "#0f172a",
-              color: "#fff",
-              fontWeight: 900,
-              cursor: !userInfo.username || userInfo.pin.length !== 4 ? "not-allowed" : "pointer",
-              fontSize: "12px",
-            }}
-          >
-            {loginLoading ? "..." : "LOAD"}
-          </button>
-          {picks.length > 0 && (
+        {/* CREDENTIALS / SESSION BAR */}
+        {loggedIn ? (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#FFFFFF", border: "1px solid #cbd5e1", borderRadius: "12px", padding: "8px 12px" }}>
+            <span style={{ fontSize: "13px", fontWeight: 800, color: "#0f172a" }}>
+              ✓ Logged in as <span style={{ color: "#2563EB" }}>{loggedInUsername}</span>
+            </span>
             <button
-              type="button"
-              onClick={clearLoadedPicks}
+              onClick={() => void handleLogout()}
               style={{
                 border: "1px solid #cbd5e1",
-                backgroundColor: "#FFFFFF",
+                backgroundColor: "#F8FAFC",
                 color: "#64748b",
-                borderRadius: "12px",
-                padding: "0 8px",
+                borderRadius: "8px",
+                padding: "4px 10px",
                 fontWeight: 800,
                 cursor: "pointer",
                 fontSize: "11px",
               }}
             >
-              ✕
+              Log out
             </button>
-          )}
-        </form>
+          </div>
+        ) : (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleLogin();
+            }}
+            style={{ display: "flex", gap: "6px", alignItems: "stretch", width: "100%" }}
+          >
+            <input
+              placeholder="Username"
+              value={userInfo.username}
+              style={{
+                flex: 2,
+                minWidth: 0,
+                padding: "9px 12px",
+                borderRadius: "12px",
+                border: "1px solid #cbd5e1",
+                outline: "none",
+                fontWeight: "700",
+                fontSize: "14px",
+                background: "#FFFFFF",
+              }}
+              onChange={(e) =>
+                setUserInfo((prev) => ({ ...prev, username: normalizeUsernameInput(e.target.value) }))
+              }
+            />
+            <input
+              placeholder="PIN"
+              type="password"
+              maxLength={4}
+              value={userInfo.pin}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                padding: "9px 6px",
+                borderRadius: "12px",
+                border: "1px solid #cbd5e1",
+                textAlign: "center",
+                fontWeight: "700",
+                fontSize: "14px",
+                background: "#FFFFFF",
+              }}
+              onChange={(e) => setUserInfo((prev) => ({ ...prev, pin: e.target.value }))}
+            />
+            <button
+              type="submit"
+              disabled={loginLoading || !userInfo.username || userInfo.pin.length !== 4}
+              style={{
+                padding: "0 12px",
+                borderRadius: "12px",
+                border: "none",
+                background: !userInfo.username || userInfo.pin.length !== 4 ? "#94a3b8" : "#0f172a",
+                color: "#fff",
+                fontWeight: 900,
+                cursor: !userInfo.username || userInfo.pin.length !== 4 ? "not-allowed" : "pointer",
+                fontSize: "12px",
+              }}
+            >
+              {loginLoading ? "..." : "LOGIN"}
+            </button>
+          </form>
+        )}
 
         {showLoadingState ? (
           <div style={{ padding: "30px", textAlign: "center", color: "#64748b", fontWeight: "700", fontSize: "14px" }}>

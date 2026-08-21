@@ -1,6 +1,7 @@
 import { getUserByUsername, getWeeklySlate, submitUserPicks } from '@/lib/googleSheets';
 import { sendPicksConfirmation } from '@/lib/email';
-import { NextResponse } from 'next/server';
+import { decodeSession, COOKIE_NAME } from '@/app/api/auth/login/route';
+import { NextRequest, NextResponse } from 'next/server';
 
 const normalizeGameId = (value: unknown): string =>
   String(value ?? '')
@@ -34,7 +35,7 @@ const isGameStarted = (kickoff: string | undefined) => {
   return kickoffDate <= new Date();
 };
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     let body: unknown;
     try {
@@ -44,13 +45,22 @@ export async function POST(request: Request) {
     }
 
     const payload = body as { userInfo?: { username?: string; pin?: string }; picks?: Array<{ gameId?: string; team?: string; wager?: number }> };
-    const { userInfo, picks } = payload;
-    if (!userInfo || !picks) {
-      return NextResponse.json({ error: 'Missing userInfo or picks' }, { status: 400 });
+    const { picks } = payload;
+    if (!picks) {
+      return NextResponse.json({ error: 'Missing picks' }, { status: 400 });
     }
 
-    const username = String(userInfo.username ?? '').trim();
-    const pin = String(userInfo.pin ?? '').trim();
+    // Prefer session cookie; fall back to body for backwards-compat.
+    const raw = request.cookies.get(COOKIE_NAME)?.value ?? '';
+    const session = decodeSession(raw);
+    const bodyUserInfo = payload.userInfo;
+    const username = (session?.username ?? String(bodyUserInfo?.username ?? '')).trim();
+    const pin = (session?.pin ?? String(bodyUserInfo?.pin ?? '')).trim();
+
+    if (!username || pin.length !== 4) {
+      return NextResponse.json({ error: 'Not authenticated. Please log in first.' }, { status: 401 });
+    }
+
     const validPicks = (picks || [])
       .filter((pick) => pick?.gameId && pick?.team)
       .map((pick) => ({
