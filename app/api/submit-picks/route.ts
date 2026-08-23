@@ -1,4 +1,4 @@
-import { getUserByUsername, getWeeklySlate, submitUserPicks } from '@/lib/googleSheets';
+import { getUserByUsername, getUserPicks, getWeeklySlate, submitUserPicks } from '@/lib/googleSheets';
 import { sendPicksConfirmation } from '@/lib/email';
 import { decodeSession, COOKIE_NAME } from '@/app/api/auth/login/route';
 import { NextRequest, NextResponse } from 'next/server';
@@ -78,13 +78,42 @@ export async function POST(request: NextRequest) {
     }
 
     const slate = await getWeeklySlate();
-    const startedGames = validPicks.filter((pick) => {
-      const game = slate.find((entry) => normalizeGameId(entry.GameID) === normalizeGameId(pick.gameId));
-      return game && isGameStarted(game.Kickoff_Time);
-    });
+    const existingPicks = await getUserPicks(username, pin).catch(() => []);
 
-    if (startedGames.length > 0) {
-      return NextResponse.json({ error: 'One or more selected games have already started and cannot be changed.' }, { status: 400 });
+    // 1. Verify that no existing picks for started games were removed or altered
+    for (const existing of existingPicks) {
+      const game = slate.find((entry) => normalizeGameId(entry.GameID) === normalizeGameId(existing.gameId));
+      if (game && isGameStarted(game.Kickoff_Time)) {
+        const incoming = validPicks.find((p) => normalizeGameId(p.gameId) === normalizeGameId(existing.gameId));
+        if (!incoming) {
+          return NextResponse.json({
+            error: `Cannot remove pick for ${existing.team} because the game has already started.`
+          }, { status: 400 });
+        }
+        if (!teamMatches(incoming.team, existing.team)) {
+          return NextResponse.json({
+            error: `Cannot change selection for ${existing.team} because the game has already started.`
+          }, { status: 400 });
+        }
+        if (Number(incoming.wager) !== Number(existing.wager)) {
+          return NextResponse.json({
+            error: `Cannot change points for ${existing.team} because the game has already started.`
+          }, { status: 400 });
+        }
+      }
+    }
+
+    // 2. Verify that no NEW picks were made for games that have already started
+    for (const incoming of validPicks) {
+      const game = slate.find((entry) => normalizeGameId(entry.GameID) === normalizeGameId(incoming.gameId));
+      if (game && isGameStarted(game.Kickoff_Time)) {
+        const existing = existingPicks.find((p) => normalizeGameId(p.gameId) === normalizeGameId(incoming.gameId));
+        if (!existing) {
+          return NextResponse.json({
+            error: `${incoming.team} game has already started and cannot be selected.`
+          }, { status: 400 });
+        }
+      }
     }
 
     const enrichedPicks = validPicks.map((pick) => {
