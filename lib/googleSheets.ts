@@ -215,7 +215,7 @@ export async function getUserPicks(username: string, pin: string) {
 
 export async function submitUserPicks(
   userInfo: { username: string; pin: string },
-  picks: Array<{ gameId: string; team: string; wager: number }>,
+  picks: Array<{ gameId: string; team: string; wager: number; spread?: string | number | null }>,
 ) {
   const username = normalizeUsername(userInfo.username);
   const pin = userInfo.pin.trim();
@@ -235,14 +235,10 @@ export async function submitUserPicks(
 
   const timestamp = new Date().toISOString();
 
-  const headerValues = sheet.headerValues ?? [];
-  if (!headerValues.includes('PIN')) {
-    const updatedHeaders = [...headerValues, 'PIN'];
-    await sheet.setHeaderRow(updatedHeaders);
-  }
-
   for (const pick of picks) {
     if (!pick.gameId || !pick.team) continue;
+
+    const spreadVal = pick.spread !== undefined && pick.spread !== null ? String(pick.spread) : '';
 
     await sheet.addRow({
       Username: username,
@@ -251,6 +247,7 @@ export async function submitUserPicks(
       GameID: pick.gameId,
       Selection: pick.team,
       Wager: Number(pick.wager) || 0,
+      Spread: spreadVal,
       Timestamp: timestamp,
       SubmittedAt: timestamp,
     });
@@ -266,6 +263,7 @@ export async function submitUserPicks(
       'Week',
       'GameID',
       'Selection',
+      'Spread',
       'Wager',
       'SubmittedAt',
       'SubmissionType',
@@ -277,6 +275,8 @@ export async function submitUserPicks(
   for (const pick of picks) {
     if (!pick.gameId || !pick.team) continue;
 
+    const spreadVal = pick.spread !== undefined && pick.spread !== null ? String(pick.spread) : '';
+
     await logSheet.addRow({
       SubmissionTimestamp: timestamp,
       Username: username,
@@ -284,6 +284,7 @@ export async function submitUserPicks(
       Week: week,
       GameID: pick.gameId,
       Selection: pick.team,
+      Spread: spreadVal,
       Wager: Number(pick.wager) || 0,
       SubmittedAt: timestamp,
       SubmissionType: 'Picks Submit',

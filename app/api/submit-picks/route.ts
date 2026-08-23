@@ -87,7 +87,40 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'One or more selected games have already started and cannot be changed.' }, { status: 400 });
     }
 
-    const result = await submitUserPicks({ username, pin }, validPicks);
+    const enrichedPicks = validPicks.map((pick) => {
+      const game = slate.find(
+        (entry) => normalizeGameId(entry.GameID) === normalizeGameId(pick.gameId),
+      );
+
+      let spread: string | number | null = null;
+      if (game && game.Spread !== undefined && game.Spread !== null && String(game.Spread).trim() !== '') {
+        const rawSpread = String(game.Spread).trim();
+        const cleaned = rawSpread.replace(/[^0-9.+-]/g, '');
+        const spreadNum = Number(cleaned);
+        if (!Number.isNaN(spreadNum)) {
+          const isAway = teamMatches(pick.team, String(game.AwayTeam ?? ''));
+          const pickSpreadVal = isAway ? spreadNum * -1 : spreadNum;
+          if (pickSpreadVal > 0) {
+            spread = `+${pickSpreadVal}`;
+          } else if (pickSpreadVal === 0) {
+            spread = '0';
+          } else {
+            spread = `${pickSpreadVal}`;
+          }
+        } else {
+          spread = rawSpread;
+        }
+      }
+
+      return {
+        gameId: pick.gameId,
+        team: pick.team,
+        wager: pick.wager,
+        spread,
+      };
+    });
+
+    const result = await submitUserPicks({ username, pin }, enrichedPicks);
 
     try {
       const userRow = await getUserByUsername(username);
@@ -95,44 +128,11 @@ export async function POST(request: NextRequest) {
       console.log('Picks email lookup', { username, emailExists: !!email, week: result.week });
 
       if (email) {
-        const picksForEmail = validPicks.map((pick) => {
-          const game = slate.find(
-            (entry) => normalizeGameId(entry.GameID) === normalizeGameId(pick.gameId),
-          );
-
-          let spread: string | number | null = null;
-          if (game && game.Spread !== undefined && game.Spread !== null && String(game.Spread).trim() !== '') {
-            const rawSpread = String(game.Spread).trim();
-            const cleaned = rawSpread.replace(/[^0-9.+-]/g, '');
-            const spreadNum = Number(cleaned);
-            if (!Number.isNaN(spreadNum)) {
-              const isAway = teamMatches(pick.team, String(game.AwayTeam ?? ''));
-              const pickSpreadVal = isAway ? spreadNum * -1 : spreadNum;
-              if (pickSpreadVal > 0) {
-                spread = `+${pickSpreadVal}`;
-              } else if (pickSpreadVal === 0) {
-                spread = '0';
-              } else {
-                spread = `${pickSpreadVal}`;
-              }
-            } else {
-              spread = rawSpread;
-            }
-          }
-
-          return {
-            gameId: pick.gameId,
-            team: pick.team,
-            wager: pick.wager,
-            spread,
-          };
-        });
-
         const emailResult = await sendPicksConfirmation({
           email,
           username,
           week: String(result.week),
-          picks: picksForEmail,
+          picks: enrichedPicks,
         });
         console.log('Picks email result', emailResult);
       }
