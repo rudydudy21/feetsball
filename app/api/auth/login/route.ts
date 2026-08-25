@@ -1,4 +1,4 @@
-import { getUserByUsername, getUserPicks, isValidUsername, normalizeUsername } from '@/lib/googleSheets';
+import { getUserByUsername, getUserPicks, isValidUsername, normalizePin, normalizeUsername } from '@/lib/googleSheets';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
@@ -16,7 +16,7 @@ export function decodeSession(value: string): { username: string; pin: string } 
   const idx = value.indexOf(':');
   if (idx === -1) return null;
   const username = value.slice(0, idx).trim();
-  const pin = value.slice(idx + 1).trim();
+  const pin = normalizePin(value.slice(idx + 1).trim());
   if (!username || pin.length !== 4) return null;
   return { username, pin };
 }
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   }
 
   const username = normalizeUsername(body.username ?? '');
-  const pin = String(body.pin ?? '').trim();
+  const pin = normalizePin(body.pin ?? '');
 
   if (!isValidUsername(username) || pin.length !== 4) {
     return NextResponse.json({ error: 'Invalid username or PIN.' }, { status: 400 });
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Username not found.' }, { status: 401 });
   }
 
-  const storedPin = String(userRow.get('PIN') ?? '').trim();
+  const storedPin = normalizePin(userRow.get('PIN'));
   if (storedPin !== pin) {
     return NextResponse.json({ error: 'Incorrect PIN.' }, { status: 401 });
   }

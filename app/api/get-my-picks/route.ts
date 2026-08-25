@@ -1,11 +1,11 @@
-import { getUserPicks, isValidUsername, normalizeUsername } from '@/lib/googleSheets';
+import { getUserPicks, isValidUsername, normalizePin, normalizeUsername } from '@/lib/googleSheets';
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const username = normalizeUsername(body?.username);
-    const pin = String(body?.pin ?? '').trim();
+    const pin = normalizePin(body?.pin);
 
     if (!isValidUsername(username) || !pin || pin.length !== 4) {
       return NextResponse.json([], { status: 200 });

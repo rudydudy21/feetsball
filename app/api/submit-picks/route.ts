@@ -1,4 +1,4 @@
-import { getUserByUsername, getUserPicks, getWeeklySlate, submitUserPicks } from '@/lib/googleSheets';
+import { getUserByUsername, getUserPicks, getWeeklySlate, normalizePin, normalizeUsername, submitUserPicks } from '@/lib/googleSheets';
 import { sendPicksConfirmation } from '@/lib/email';
 import { decodeSession, COOKIE_NAME } from '@/app/api/auth/login/route';
 import { NextRequest, NextResponse } from 'next/server';
@@ -54,8 +54,8 @@ export async function POST(request: NextRequest) {
     const raw = request.cookies.get(COOKIE_NAME)?.value ?? '';
     const session = decodeSession(raw);
     const bodyUserInfo = payload.userInfo;
-    const username = (session?.username ?? String(bodyUserInfo?.username ?? '')).trim();
-    const pin = (session?.pin ?? String(bodyUserInfo?.pin ?? '')).trim();
+    const username = normalizeUsername(session?.username ?? String(bodyUserInfo?.username ?? ''));
+    const pin = normalizePin(session?.pin ?? String(bodyUserInfo?.pin ?? ''));
 
     if (!username || pin.length !== 4) {
       return NextResponse.json({ error: 'Not authenticated. Please log in first.' }, { status: 401 });

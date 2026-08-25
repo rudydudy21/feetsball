@@ -76,6 +76,15 @@ export function normalizeUsername(value: unknown) {
     .replace(/[^a-z0-9_-]/g, '');
 }
 
+export function normalizePin(value: unknown): string {
+  const raw = asString(value).trim();
+  if (!raw) return '';
+  if (/^\d{1,4}$/.test(raw)) {
+    return raw.padStart(4, '0');
+  }
+  return raw;
+}
+
 export function isValidUsername(value: unknown) {
   const normalized = normalizeUsername(value);
   return /^[a-z0-9][a-z0-9_-]{2,19}$/.test(normalized);
@@ -141,7 +150,7 @@ export async function getWeeklySlate() {
 
 export async function getUserPicks(username: string, pin: string) {
   const normalizedUsername = normalizeUsername(username);
-  const trimmedPin = pin.trim();
+  const trimmedPin = normalizePin(pin);
   const currentWeek = await getCurrentWeek().catch(() => '');
 
   const loadRows = async (sheetName: string) => {
@@ -164,7 +173,7 @@ export async function getUserPicks(username: string, pin: string) {
   for (const rows of rowsBySheet) {
     for (const row of rows) {
       const rowUsername = normalizeUsername(row.get('Username'));
-      const rowPin = asString(row.get('PIN'));
+      const rowPin = normalizePin(row.get('PIN'));
       const rowWeek = asString(row.get('Week'));
       if (rowUsername !== normalizedUsername || rowPin !== trimmedPin) continue;
       if (currentWeek && rowWeek && rowWeek !== currentWeek) continue;
@@ -218,14 +227,14 @@ export async function submitUserPicks(
   picks: Array<{ gameId: string; team: string; wager: number; spread?: string | number | null }>,
 ) {
   const username = normalizeUsername(userInfo.username);
-  const pin = userInfo.pin.trim();
+  const pin = normalizePin(userInfo.pin);
   const week = await getCurrentWeek();
   const sheet = await getSheetByTitle('Picks');
   const rows = await sheet.getRows();
 
   for (const row of rows) {
     const rowUsername = normalizeUsername(row.get('Username'));
-    const rowPin = asString(row.get('PIN'));
+    const rowPin = normalizePin(row.get('PIN'));
     const rowWeek = asString(row.get('Week'));
 
     if (rowUsername === username && rowPin === pin && rowWeek === week) {
@@ -543,7 +552,7 @@ export async function registerUser(user: { username: string; email: string; pin:
   await usersSheet.addRow({
     Username: normalizedUsername,
     Email: user.email.trim().toLowerCase(),
-    PIN: user.pin.trim(),
+    PIN: normalizePin(user.pin),
     Created: new Date().toLocaleString(),
     ByeWeekUsed: 'FALSE',
   });
