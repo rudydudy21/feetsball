@@ -523,6 +523,31 @@ export async function getLeagueMasterCode() {
   return asString(value).toUpperCase();
 }
 
+export async function getAllRegisteredParticipants(): Promise<Array<{ username: string; email: string }>> {
+  try {
+    const usersSheet = await getSheetByTitle('Users');
+    const rows = await usersSheet.getRows();
+    const participants: Array<{ username: string; email: string }> = [];
+    const seenEmails = new Set<string>();
+
+    for (const row of rows) {
+      const username = asString(row.get('Username'));
+      const email = asString(row.get('Email')).toLowerCase();
+      if (email && email.includes('@') && !seenEmails.has(email)) {
+        seenEmails.add(email);
+        participants.push({
+          username: username || email.split('@')[0],
+          email,
+        });
+      }
+    }
+    return participants;
+  } catch (error) {
+    console.error('Failed to get registered participants from Users sheet:', error);
+    return [];
+  }
+}
+
 export async function getUserByUsername(username: string) {
   const usersSheet = await getSheetByTitle('Users');
   const rows = await usersSheet.getRows();

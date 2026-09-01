@@ -133,3 +133,402 @@ export async function sendPicksConfirmation({
   }
 }
 
+export interface SlateGameItem {
+  GameID?: string;
+  AwayTeam?: string;
+  AwayLogo?: string;
+  AwayRank?: string | number | null;
+  HomeTeam?: string;
+  HomeLogo?: string;
+  HomeRank?: string | number | null;
+  Spread?: string | number | null;
+  Kickoff_Time?: string;
+}
+
+export function calculateGameSpreads(spreadRaw: string | number | null | undefined): { awaySpread: string; homeSpread: string } {
+  if (spreadRaw === null || spreadRaw === undefined) return { awaySpread: '', homeSpread: '' };
+  const raw = String(spreadRaw).trim();
+  if (!raw) return { awaySpread: '', homeSpread: '' };
+  if (raw === 'CHECK SPREAD' || raw === 'PUSH') return { awaySpread: raw, homeSpread: raw };
+
+  const cleaned = raw.replace(/[^0-9.+-]/g, '');
+  const num = Number(cleaned);
+  if (!Number.isFinite(num)) {
+    return { awaySpread: raw, homeSpread: raw };
+  }
+
+  const awayNum = -num;
+  const awaySpread = awayNum > 0 ? `+${awayNum}` : `${awayNum}`;
+  const homeSpread = num > 0 ? `+${num}` : `${num}`;
+  return { awaySpread, homeSpread };
+}
+
+export function formatKickoffET(kickoffTime: string | undefined): string {
+  if (!kickoffTime) return 'Kickoff TBA';
+  try {
+    const date = new Date(kickoffTime);
+    if (Number.isNaN(date.getTime())) return kickoffTime;
+    return (
+      date.toLocaleString('en-US', {
+        timeZone: 'America/New_York',
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      }) + ' ET'
+    );
+  } catch {
+    return kickoffTime;
+  }
+}
+
+export function renderSlateAnnouncementEmailHtml({
+  week,
+  games,
+  username,
+  appUrl = 'https://feetsball.com',
+}: {
+  week: string;
+  games: SlateGameItem[];
+  username?: string;
+  appUrl?: string;
+}): string {
+  const greeting = username ? `Hey ${username},` : 'Hey Feetsballers,';
+
+  const gameCardsHtml = games
+    .map((game, index) => {
+      const awayTeam = game.AwayTeam || 'Away Team';
+      const homeTeam = game.HomeTeam || 'Home Team';
+      const awayLogo = game.AwayLogo || '';
+      const homeLogo = game.HomeLogo || '';
+      const awayRank = game.AwayRank ? `#${game.AwayRank} ` : '';
+      const homeRank = game.HomeRank ? `#${game.HomeRank} ` : '';
+      const kickoff = formatKickoffET(game.Kickoff_Time);
+      const { awaySpread, homeSpread } = calculateGameSpreads(game.Spread);
+
+      return `
+        <!-- Game Card ${index + 1} -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 12px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; border-collapse: separate;">
+          <tr>
+            <td style="padding: 8px 12px; background-color: #f8fafc; border-bottom: 1px solid #e2e8f0; font-size: 11px; font-weight: 700; color: #64748b; letter-spacing: 0.5px;">
+              🏈 GAME ${index + 1} &bull; ${kickoff}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 10px 12px;">
+              <!-- Away Team Row -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 8px;">
+                <tr>
+                  <td width="32" style="vertical-align: middle;">
+                    ${
+                      awayLogo
+                        ? `<img src="${awayLogo}" alt="${awayTeam}" width="26" height="26" style="display: block; border-radius: 4px; object-fit: contain; width: 26px; height: 26px;" />`
+                        : `<span style="display: inline-block; width: 26px; height: 26px; background-color: #e2e8f0; border-radius: 4px; text-align: center; line-height: 26px; font-size: 10px; font-weight: 800;">🏈</span>`
+                    }
+                  </td>
+                  <td style="padding-left: 8px; vertical-align: middle;">
+                    <span style="font-size: 14px; font-weight: 800; color: #0f172a;">
+                      ${awayRank ? `<span style="color: #64748b; font-size: 11px; font-weight: 900; margin-right: 2px;">${awayRank}</span>` : ''}${awayTeam}
+                    </span>
+                  </td>
+                  <td align="right" style="vertical-align: middle;">
+                    ${
+                      awaySpread
+                        ? `<span style="display: inline-block; background-color: #f1f5f9; color: #0f172a; font-weight: 800; font-size: 12px; padding: 3px 8px; border-radius: 6px; border: 1px solid #cbd5e1;">${awaySpread}</span>`
+                        : ''
+                    }
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Divider -->
+              <div style="height: 1px; background-color: #f1f5f9; margin: 4px 0 8px 0;"></div>
+
+              <!-- Home Team Row -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td width="32" style="vertical-align: middle;">
+                    ${
+                      homeLogo
+                        ? `<img src="${homeLogo}" alt="${homeTeam}" width="26" height="26" style="display: block; border-radius: 4px; object-fit: contain; width: 26px; height: 26px;" />`
+                        : `<span style="display: inline-block; width: 26px; height: 26px; background-color: #e2e8f0; border-radius: 4px; text-align: center; line-height: 26px; font-size: 10px; font-weight: 800;">🏈</span>`
+                    }
+                  </td>
+                  <td style="padding-left: 8px; vertical-align: middle;">
+                    <span style="font-size: 14px; font-weight: 800; color: #0f172a;">
+                      ${homeRank ? `<span style="color: #64748b; font-size: 11px; font-weight: 900; margin-right: 2px;">${homeRank}</span>` : ''}${homeTeam}
+                    </span>
+                  </td>
+                  <td align="right" style="vertical-align: middle;">
+                    ${
+                      homeSpread
+                        ? `<span style="display: inline-block; background-color: #f1f5f9; color: #0f172a; font-weight: 800; font-size: 12px; padding: 3px 8px; border-radius: 6px; border: 1px solid #cbd5e1;">${homeSpread}</span>`
+                        : ''
+                    }
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      `;
+    })
+    .join('');
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Feetsball Week ${week} Slate & Spreads</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #0f172a;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f1f5f9; padding: 20px 10px;">
+    <tr>
+      <td align="center">
+        <!-- Main Card Container -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width: 560px; background-color: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08); border: 1px solid #e2e8f0; border-collapse: separate;">
+          
+          <!-- Brand Header Banner -->
+          <tr>
+            <td style="background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%); padding: 24px 20px; text-align: center; color: #ffffff;">
+              <div style="font-size: 26px; font-weight: 900; letter-spacing: -1px; margin: 0; line-height: 1;">
+                FEETSBALL
+              </div>
+              <div style="display: inline-block; margin-top: 10px; background-color: #2563eb; color: #ffffff; font-size: 11px; font-weight: 800; letter-spacing: 2px; padding: 5px 14px; border-radius: 999px;">
+                WEEK ${week} SLATE IS LIVE
+              </div>
+            </td>
+          </tr>
+
+          <!-- Intro Message & Call to Action -->
+          <tr>
+            <td style="padding: 24px 20px 16px;">
+              <p style="margin: 0 0 10px; font-size: 16px; font-weight: 800; color: #0f172a;">
+                ${greeting}
+              </p>
+              <p style="margin: 0 0 16px; font-size: 14px; line-height: 1.5; color: #475569;">
+                The games and consensus spreads for <strong>Week ${week}</strong> have been loaded into Feetsball! Pick your top 5 winners against the spread and assign confidence wagers (5 to 1 points).
+              </p>
+
+              <!-- Main CTA Button -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 16px 0 20px;">
+                <tr>
+                  <td align="center">
+                    <a href="${appUrl}" target="_blank" style="display: inline-block; background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 800; padding: 14px 28px; border-radius: 12px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35); text-align: center;">
+                      LOCK IN YOUR PICKS &rarr;
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Deadline Reminder Box -->
+              <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 10px 14px; margin-bottom: 20px; font-size: 12px; color: #991b1b; font-weight: 700; text-align: center;">
+                ⏰ <strong>Deadline:</strong> All picks must be locked before <strong>Saturday 12:00 PM ET</strong>!
+              </div>
+
+              <!-- Section Title -->
+              <div style="font-size: 13px; font-weight: 800; color: #0f172a; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px;">
+                Week ${week} Matchups (${games.length} Games)
+              </div>
+
+              <!-- Matchups List -->
+              ${gameCardsHtml}
+
+              <!-- Bottom CTA -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 20px 0 10px;">
+                <tr>
+                  <td align="center">
+                    <a href="${appUrl}" target="_blank" style="display: inline-block; background-color: #0f172a; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 800; padding: 12px 24px; border-radius: 10px; text-align: center;">
+                      Go to Feetsball (${appUrl})
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 18px 20px; background-color: #f8fafc; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #64748b; line-height: 1.5;">
+              <p style="margin: 0 0 6px; font-weight: 700; color: #334155;">Feetsball College Football Pick'em</p>
+              <p style="margin: 0;">Good luck this week!</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+}
+
+export function renderSlateAnnouncementEmailText({
+  week,
+  games,
+  username,
+  appUrl = 'https://feetsball.com',
+}: {
+  week: string;
+  games: SlateGameItem[];
+  username?: string;
+  appUrl?: string;
+}): string {
+  const greeting = username ? `Hey ${username},` : 'Hey Feetsballers,';
+
+  const gamesSummary = games
+    .map((game, index) => {
+      const awayTeam = game.AwayTeam || 'Away Team';
+      const homeTeam = game.HomeTeam || 'Home Team';
+      const awayRank = game.AwayRank ? `#${game.AwayRank} ` : '';
+      const homeRank = game.HomeRank ? `#${game.HomeRank} ` : '';
+      const kickoff = formatKickoffET(game.Kickoff_Time);
+      const { awaySpread, homeSpread } = calculateGameSpreads(game.Spread);
+
+      return `${index + 1}. [${kickoff}]\n   ${awayRank}${awayTeam} (${awaySpread || '0'}) @ ${homeRank}${homeTeam} (${homeSpread || '0'})`;
+    })
+    .join('\n\n');
+
+  return `
+${greeting}
+
+The games and consensus spreads for Week ${week} are now loaded in Feetsball!
+
+Submit your top 5 picks (confidence points 5 to 1) at:
+${appUrl}
+
+DEADLINE: Saturday at 12:00 PM ET.
+
+--- WEEK ${week} MATCHUPS (${games.length} GAMES) ---
+
+${gamesSummary}
+
+---
+Good luck this week!
+Feetsball Commissioner
+  `.trim();
+}
+
+export async function sendSlateAnnouncementEmail({
+  recipients,
+  week,
+  games,
+  appUrl = 'https://feetsball.com',
+}: {
+  recipients: Array<{ email: string; username?: string }>;
+  week: string;
+  games: SlateGameItem[];
+  appUrl?: string;
+}): Promise<{
+  success: boolean;
+  totalRecipients: number;
+  sentCount: number;
+  failedCount: number;
+  skipped?: boolean;
+  errors?: string[];
+}> {
+  if (!resend) {
+    console.warn('RESEND_API_KEY not configured; skipping slate announcement email.');
+    return {
+      success: false,
+      skipped: true,
+      totalRecipients: recipients.length,
+      sentCount: 0,
+      failedCount: recipients.length,
+      errors: ['RESEND_API_KEY is not configured in environment.'],
+    };
+  }
+
+  if (!recipients || recipients.length === 0) {
+    return {
+      success: true,
+      totalRecipients: 0,
+      sentCount: 0,
+      failedCount: 0,
+    };
+  }
+
+  console.log(`Starting slate announcement email broadcast for Week ${week} to ${recipients.length} recipients.`);
+
+  let sentCount = 0;
+  let failedCount = 0;
+  const errors: string[] = [];
+
+  // Group recipients into batches of 50 to avoid any API payload limits
+  const BATCH_SIZE = 50;
+  for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
+    const chunk = recipients.slice(i, i + BATCH_SIZE);
+
+    const emailItems = chunk.map((recipient) => {
+      const html = renderSlateAnnouncementEmailHtml({
+        week,
+        games,
+        username: recipient.username,
+        appUrl,
+      });
+      const text = renderSlateAnnouncementEmailText({
+        week,
+        games,
+        username: recipient.username,
+        appUrl,
+      });
+
+      return {
+        from: emailFrom,
+        to: [recipient.email.trim().toLowerCase()],
+        subject: `🏈 Feetsball Week ${week} Slate & Spreads are Live!`,
+        html,
+        text,
+      };
+    });
+
+    try {
+      if (resend.batch && typeof resend.batch.send === 'function') {
+        const batchResult = await resend.batch.send(emailItems);
+        if (batchResult.data && Array.isArray(batchResult.data.data)) {
+          sentCount += batchResult.data.data.length;
+        } else {
+          sentCount += emailItems.length;
+        }
+      } else {
+        // Fallback to individual sends
+        for (const item of emailItems) {
+          try {
+            await resend.emails.send(item);
+            sentCount++;
+          } catch (err) {
+            failedCount++;
+            errors.push(`Failed for ${item.to.join(',')}: ${err instanceof Error ? err.message : String(err)}`);
+          }
+        }
+      }
+    } catch (chunkError) {
+      console.error(`Batch send failed for chunk starting at ${i}, falling back to individual sends:`, chunkError);
+      // Fallback for this chunk
+      for (const item of emailItems) {
+        try {
+          await resend.emails.send(item);
+          sentCount++;
+        } catch (singleErr) {
+          failedCount++;
+          errors.push(`Failed for ${item.to.join(',')}: ${singleErr instanceof Error ? singleErr.message : String(singleErr)}`);
+        }
+      }
+    }
+  }
+
+  return {
+    success: sentCount > 0,
+    totalRecipients: recipients.length,
+    sentCount,
+    failedCount,
+    errors: errors.length > 0 ? errors.slice(0, 10) : undefined,
+  };
+}
+
+
