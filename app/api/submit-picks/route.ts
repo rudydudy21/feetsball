@@ -122,22 +122,38 @@ export async function POST(request: NextRequest) {
       );
 
       let spread: string | number | null = null;
-      if (game && game.Spread !== undefined && game.Spread !== null && String(game.Spread).trim() !== '') {
-        const rawSpread = String(game.Spread).trim();
-        const cleaned = rawSpread.replace(/[^0-9.+-]/g, '');
-        const spreadNum = Number(cleaned);
-        if (!Number.isNaN(spreadNum)) {
-          const isAway = teamMatches(pick.team, String(game.AwayTeam ?? ''));
-          const pickSpreadVal = isAway ? spreadNum * -1 : spreadNum;
-          if (pickSpreadVal > 0) {
-            spread = `+${pickSpreadVal}`;
-          } else if (pickSpreadVal === 0) {
-            spread = '0';
+      let teamLogo = '';
+      let teamRank: string | number | null = null;
+      let opponent = '';
+      let opponentLogo = '';
+      let opponentRank: string | number | null = null;
+      let isHome = false;
+
+      if (game) {
+        const isAway = teamMatches(pick.team, String(game.AwayTeam ?? ''));
+        isHome = !isAway;
+        teamLogo = isAway ? String(game.AwayLogo ?? '') : String(game.HomeLogo ?? '');
+        teamRank = isAway ? (game.AwayRank ?? null) : (game.HomeRank ?? null);
+        opponent = isAway ? String(game.HomeTeam ?? '') : String(game.AwayTeam ?? '');
+        opponentLogo = isAway ? String(game.HomeLogo ?? '') : String(game.AwayLogo ?? '');
+        opponentRank = isAway ? (game.HomeRank ?? null) : (game.AwayRank ?? null);
+
+        if (game.Spread !== undefined && game.Spread !== null && String(game.Spread).trim() !== '') {
+          const rawSpread = String(game.Spread).trim();
+          const cleaned = rawSpread.replace(/[^0-9.+-]/g, '');
+          const spreadNum = Number(cleaned);
+          if (!Number.isNaN(spreadNum)) {
+            const pickSpreadVal = isAway ? spreadNum * -1 : spreadNum;
+            if (pickSpreadVal > 0) {
+              spread = `+${pickSpreadVal}`;
+            } else if (pickSpreadVal === 0) {
+              spread = '0';
+            } else {
+              spread = `${pickSpreadVal}`;
+            }
           } else {
-            spread = `${pickSpreadVal}`;
+            spread = rawSpread;
           }
-        } else {
-          spread = rawSpread;
         }
       }
 
@@ -146,6 +162,12 @@ export async function POST(request: NextRequest) {
         team: pick.team,
         wager: pick.wager,
         spread,
+        teamLogo,
+        teamRank,
+        opponent,
+        opponentLogo,
+        opponentRank,
+        isHome,
       };
     });
 

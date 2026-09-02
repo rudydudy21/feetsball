@@ -8,53 +8,17 @@ const emailFrom = normalizeSender(process.env.RESEND_FROM_EMAIL);
 
 export const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
-export async function sendRegistrationConfirmation({
-  email,
-  username,
-}: {
-  email: string;
-  username: string;
-}) {
-  if (!resend) {
-    console.warn('RESEND_API_KEY not configured; skipping confirmation email.');
-    return { success: false, skipped: true };
-  }
-
-  console.log('Attempting registration email send', {
-    from: emailFrom,
-    to: email,
-    username,
-  });
-
-  try {
-    const result = await resend.emails.send({
-      from: emailFrom,
-      to: [email],
-      subject: 'Welcome to Feetsball',
-      html: `
-        <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #0f172a;">
-          <h2 style="margin-bottom: 12px;">Welcome to Feetsball, ${username}!</h2>
-          <p>Your registration is complete.</p>
-          <p>You can now log in with your username and 4-digit PIN.</p>
-          <p style="margin-top: 20px;">Good luck this week.</p>
-        </div>
-      `,
-      text: `Welcome to Feetsball, ${username}! Your registration is complete. You can now log in with your username and 4-digit PIN. Good luck this week.`,
-    });
-
-    console.log('Resend registration email result', result);
-    return { success: true, id: result.data?.id ?? null };
-  } catch (error) {
-    console.error('Resend registration email failed', error);
-    return { success: false, error: error instanceof Error ? error.message : String(error) };
-  }
-}
-
 export interface PickConfirmationItem {
   gameId?: string;
   team: string;
   wager: number;
   spread?: string | number | null;
+  teamLogo?: string;
+  teamRank?: string | number | null;
+  opponent?: string;
+  opponentLogo?: string;
+  opponentRank?: string | number | null;
+  isHome?: boolean;
 }
 
 export function formatPickSpread(spread: string | number | null | undefined): string {
@@ -68,16 +32,363 @@ export function formatPickSpread(spread: string | number | null | undefined): st
   return trimmed;
 }
 
+export function renderRegistrationConfirmationHtml({
+  username,
+  email,
+  appUrl = 'https://feetsball.win',
+}: {
+  username: string;
+  email: string;
+  appUrl?: string;
+}): string {
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome to Feetsball</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #0f172a;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f1f5f9; padding: 20px 10px;">
+    <tr>
+      <td align="center">
+        <!-- Main Container -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width: 560px; background-color: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08); border: 1px solid #e2e8f0; border-collapse: separate;">
+          
+          <!-- Brand Header Banner -->
+          <tr>
+            <td style="background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%); padding: 26px 20px; text-align: center; color: #ffffff;">
+              <div style="font-size: 26px; font-weight: 900; letter-spacing: -1px; margin: 0; line-height: 1;">
+                FEETSBALL
+              </div>
+              <div style="display: inline-block; margin-top: 10px; background-color: #059669; color: #ffffff; font-size: 11px; font-weight: 800; letter-spacing: 2px; padding: 5px 14px; border-radius: 999px;">
+                🎉 REGISTRATION CONFIRMED
+              </div>
+            </td>
+          </tr>
+
+          <!-- Intro & Welcome Details -->
+          <tr>
+            <td style="padding: 24px 20px 16px;">
+              <p style="margin: 0 0 10px; font-size: 17px; font-weight: 800; color: #0f172a;">
+                Welcome to the League, ${username}!
+              </p>
+              <p style="margin: 0 0 18px; font-size: 14px; line-height: 1.5; color: #475569;">
+                Your registration for the <strong>2026 Feetsball College Football Challenge</strong> is complete. You are officially locked in and ready to compete for the season crown.
+              </p>
+
+              <!-- Account Summary Box -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 20px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; border-collapse: separate;">
+                <tr>
+                  <td style="padding: 12px 16px;">
+                    <div style="font-size: 11px; font-weight: 800; color: #64748b; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;">
+                      Your Account Details
+                    </div>
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="font-size: 13px; color: #64748b; padding: 3px 0; font-weight: 600;">Username:</td>
+                        <td align="right" style="font-size: 14px; font-weight: 800; color: #0f172a; padding: 3px 0;">${username}</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size: 13px; color: #64748b; padding: 3px 0; font-weight: 600;">Email:</td>
+                        <td align="right" style="font-size: 13px; font-weight: 700; color: #0f172a; padding: 3px 0;">${email}</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size: 13px; color: #64748b; padding: 3px 0; font-weight: 600;">Login PIN:</td>
+                        <td align="right" style="font-size: 13px; font-weight: 800; color: #2563eb; padding: 3px 0;">4-Digit PIN Selected</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- How to Play Card -->
+              <div style="font-size: 12px; font-weight: 800; color: #0f172a; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px;">
+                🏈 How To Play Each Week
+              </div>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 20px;">
+                <tr>
+                  <td width="28" style="vertical-align: top; padding-right: 10px; padding-bottom: 10px;">
+                    <span style="display: inline-block; width: 22px; height: 22px; background-color: #2563eb; color: #ffffff; border-radius: 999px; text-align: center; line-height: 22px; font-size: 11px; font-weight: 900;">1</span>
+                  </td>
+                  <td style="font-size: 13px; color: #334155; line-height: 1.4; padding-bottom: 10px;">
+                    <strong>Check the Slate:</strong> When weekly games and consensus spreads drop, review the Top 25 matchups.
+                  </td>
+                </tr>
+                <tr>
+                  <td width="28" style="vertical-align: top; padding-right: 10px; padding-bottom: 10px;">
+                    <span style="display: inline-block; width: 22px; height: 22px; background-color: #2563eb; color: #ffffff; border-radius: 999px; text-align: center; line-height: 22px; font-size: 11px; font-weight: 900;">2</span>
+                  </td>
+                  <td style="font-size: 13px; color: #334155; line-height: 1.4; padding-bottom: 10px;">
+                    <strong>Pick Your Top 5:</strong> Select 5 teams you believe will cover their point spread.
+                  </td>
+                </tr>
+                <tr>
+                  <td width="28" style="vertical-align: top; padding-right: 10px; padding-bottom: 10px;">
+                    <span style="display: inline-block; width: 22px; height: 22px; background-color: #2563eb; color: #ffffff; border-radius: 999px; text-align: center; line-height: 22px; font-size: 11px; font-weight: 900;">3</span>
+                  </td>
+                  <td style="font-size: 13px; color: #334155; line-height: 1.4; padding-bottom: 10px;">
+                    <strong>Assign Confidence Points:</strong> Rank your picks 5, 4, 3, 2, and 1 point before Saturday 12:00 PM ET.
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Main CTA Button -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 16px 0 20px;">
+                <tr>
+                  <td align="center">
+                    <a href="${appUrl}" target="_blank" style="display: inline-block; background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 800; padding: 14px 28px; border-radius: 12px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35); text-align: center;">
+                      GO TO FEETSBALL &rarr;
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Reminder Box -->
+              <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; font-size: 12px; color: #64748b; font-weight: 600; text-align: center;">
+                💡 Keep your 4-digit PIN handy each week to log in and submit picks quickly.
+              </div>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 18px 20px; background-color: #f8fafc; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #64748b; line-height: 1.5;">
+              <p style="margin: 0 0 4px; font-weight: 800; color: #334155;">Feetsball College Football Challenge</p>
+              <p style="margin: 0;">Good luck this season!</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+}
+
+export async function sendRegistrationConfirmation({
+  email,
+  username,
+  appUrl = 'https://feetsball.win',
+}: {
+  email: string;
+  username: string;
+  appUrl?: string;
+}) {
+  if (!resend) {
+    console.warn('RESEND_API_KEY not configured; skipping confirmation email.');
+    return { success: false, skipped: true };
+  }
+
+  console.log('Attempting registration email send', {
+    from: emailFrom,
+    to: email,
+    username,
+  });
+
+  const html = renderRegistrationConfirmationHtml({
+    username,
+    email,
+    appUrl,
+  });
+
+  const text = `Welcome to Feetsball, ${username}!\n\nYour registration is complete. You can now log in at ${appUrl} with your username and 4-digit PIN.\n\nGood luck this season!`;
+
+  try {
+    const result = await resend.emails.send({
+      from: emailFrom,
+      to: [email],
+      subject: '🎉 Welcome to Feetsball - Registration Confirmed',
+      html,
+      text,
+    });
+
+    console.log('Resend registration email result', result);
+    return { success: true, id: result.data?.id ?? null };
+  } catch (error) {
+    console.error('Resend registration email failed', error);
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+export function renderPicksConfirmationHtml({
+  username,
+  week,
+  picks,
+  appUrl = 'https://feetsball.win',
+}: {
+  username: string;
+  week: string;
+  picks: PickConfirmationItem[];
+  appUrl?: string;
+}): string {
+  const sortedPicks = [...picks].sort((a, b) => (Number(b.wager) || 0) - (Number(a.wager) || 0));
+  const totalPoints = sortedPicks.reduce((acc, p) => acc + (Number(p.wager) || 0), 0);
+
+  const getWagerBadgeColor = (wager: number) => {
+    if (wager === 5) return { bg: '#FEF3C7', text: '#92400E', border: '#FDE68A', label: '⭐ 5 POINTS' };
+    if (wager === 4) return { bg: '#EFF6FF', text: '#1E40AF', border: '#BFDBFE', label: '4 POINTS' };
+    if (wager === 3) return { bg: '#F3E8FF', text: '#6B21A8', border: '#E9D5FF', label: '3 POINTS' };
+    if (wager === 2) return { bg: '#F1F5F9', text: '#334155', border: '#CBD5E1', label: '2 POINTS' };
+    return { bg: '#F8FAFC', text: '#475569', border: '#E2E8F0', label: '1 POINT' };
+  };
+
+  const pickCardsHtml = sortedPicks
+    .map((pick, index) => {
+      const badge = getWagerBadgeColor(pick.wager);
+      const formattedSpread = formatPickSpread(pick.spread);
+      const spreadPill = formattedSpread
+        ? `<span style="display: inline-block; background-color: #f1f5f9; color: #0f172a; font-weight: 800; font-size: 12px; padding: 3px 8px; border-radius: 6px; border: 1px solid #cbd5e1;">${formattedSpread}</span>`
+        : '';
+      const rankBadge = pick.teamRank ? `<span style="color: #64748b; font-size: 11px; font-weight: 900; margin-right: 3px;">#${pick.teamRank}</span>` : '';
+      const opponentText = pick.opponent ? `<div style="font-size: 11px; color: #64748b; font-weight: 600; margin-top: 2px;">${pick.isHome ? 'vs' : '@'} ${pick.opponentRank ? '#' + pick.opponentRank + ' ' : ''}${pick.opponent}</div>` : '';
+
+      return `
+        <!-- Pick Card ${index + 1} -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 10px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; border-collapse: separate; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);">
+          <tr>
+            <td style="padding: 10px 14px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td width="36" style="vertical-align: middle;">
+                    ${
+                      pick.teamLogo
+                        ? `<img src="${pick.teamLogo}" alt="${pick.team}" width="28" height="28" style="display: block; border-radius: 4px; object-fit: contain; width: 28px; height: 28px;" />`
+                        : `<span style="display: inline-block; width: 28px; height: 28px; background-color: #e2e8f0; border-radius: 4px; text-align: center; line-height: 28px; font-size: 12px;">🏈</span>`
+                    }
+                  </td>
+                  <td style="padding-left: 10px; vertical-align: middle;">
+                    <div style="font-size: 15px; font-weight: 800; color: #0f172a; line-height: 1.2;">
+                      ${rankBadge}${pick.team}
+                    </div>
+                    ${opponentText}
+                  </td>
+                  <td align="right" style="vertical-align: middle;">
+                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+                      <span style="display: inline-block; background-color: ${badge.bg}; color: ${badge.text}; border: 1px solid ${badge.border}; font-size: 11px; font-weight: 900; padding: 3px 8px; border-radius: 6px; letter-spacing: 0.5px;">
+                        ${badge.label}
+                      </span>
+                      ${spreadPill}
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      `;
+    })
+    .join('');
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Feetsball Picks Confirmed - Week ${week}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #0f172a;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f1f5f9; padding: 20px 10px;">
+    <tr>
+      <td align="center">
+        <!-- Main Container -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width: 560px; background-color: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08); border: 1px solid #e2e8f0; border-collapse: separate;">
+          
+          <!-- Brand Header Banner -->
+          <tr>
+            <td style="background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%); padding: 26px 20px; text-align: center; color: #ffffff;">
+              <div style="font-size: 26px; font-weight: 900; letter-spacing: -1px; margin: 0; line-height: 1;">
+                FEETSBALL
+              </div>
+              <div style="display: inline-block; margin-top: 10px; background-color: #059669; color: #ffffff; font-size: 11px; font-weight: 800; letter-spacing: 2px; padding: 5px 14px; border-radius: 999px;">
+                🏆 PICKS LOCKED IN &bull; WEEK ${week}
+              </div>
+            </td>
+          </tr>
+
+          <!-- Summary & Picks Cards -->
+          <tr>
+            <td style="padding: 24px 20px 16px;">
+              <p style="margin: 0 0 8px; font-size: 17px; font-weight: 800; color: #0f172a;">
+                Picks Locked In for ${username}!
+              </p>
+              <p style="margin: 0 0 18px; font-size: 14px; line-height: 1.5; color: #475569;">
+                Your selections for <strong>Week ${week}</strong> have been recorded in the league ledger.
+              </p>
+
+              <!-- Stats Summary Pill -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 18px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; border-collapse: separate; text-align: center;">
+                <tr>
+                  <td style="padding: 10px 8px; width: 50%; border-right: 1px solid #e2e8f0;">
+                    <div style="font-size: 10px; font-weight: 800; color: #64748b; letter-spacing: 1px; text-transform: uppercase;">Picks Submitted</div>
+                    <div style="font-size: 16px; font-weight: 900; color: #0f172a;">${sortedPicks.length} of 5</div>
+                  </td>
+                  <td style="padding: 10px 8px; width: 50%;">
+                    <div style="font-size: 10px; font-weight: 800; color: #64748b; letter-spacing: 1px; text-transform: uppercase;">Total Wager Points</div>
+                    <div style="font-size: 16px; font-weight: 900; color: #2563eb;">${totalPoints} Pts</div>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Picks List Section Header -->
+              <div style="font-size: 12px; font-weight: 800; color: #0f172a; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px;">
+                Your Week ${week} Selections
+              </div>
+
+              <!-- List of Pick Cards -->
+              ${pickCardsHtml}
+
+              <!-- Main CTA Button -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 20px 0 16px;">
+                <tr>
+                  <td align="center">
+                    <a href="${appUrl}/leaderboard/weekly" target="_blank" style="display: inline-block; background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 800; padding: 14px 28px; border-radius: 12px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35); text-align: center;">
+                      VIEW WEEKLY LEADERBOARD &rarr;
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Info Notice -->
+              <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; margin-bottom: 8px; font-size: 12px; color: #64748b; font-weight: 600; text-align: center;">
+                🔒 Submissions are final after Saturday 12:00 PM ET. Live scores update on the leaderboard throughout Saturday.
+              </div>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 18px 20px; background-color: #f8fafc; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #64748b; line-height: 1.5;">
+              <p style="margin: 0 0 4px; font-weight: 800; color: #334155;">Feetsball College Football Challenge</p>
+              <p style="margin: 0;">Good luck this week!</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+}
+
 export async function sendPicksConfirmation({
   email,
   username,
   week,
   picks,
+  appUrl = 'https://feetsball.win',
 }: {
   email: string;
   username: string;
   week: string;
   picks: PickConfirmationItem[];
+  appUrl?: string;
 }) {
   if (!resend) {
     console.warn('RESEND_API_KEY not configured; skipping picks confirmation email.');
@@ -90,14 +401,13 @@ export async function sendPicksConfirmation({
     const formattedSpread = formatPickSpread(pick.spread);
     const spreadBadge = formattedSpread ? ` (${formattedSpread})` : '';
     const pointsLabel = pick.wager === 1 ? 'point' : 'points';
+    const rankPrefix = pick.teamRank ? `#${pick.teamRank} ` : '';
     return {
-      html: `<li><strong>${pick.wager} ${pointsLabel}</strong> - ${pick.team}${spreadBadge}</li>`,
-      text: `${pick.wager} ${pointsLabel} - ${pick.team}${spreadBadge}`,
+      text: `${pick.wager} ${pointsLabel} - ${rankPrefix}${pick.team}${spreadBadge}`,
     };
   };
 
   const formattedItems = sortedPicks.map(formatPickItem);
-  const summaryHtml = formattedItems.map((item) => item.html).join('');
   const summaryText = formattedItems.map((item) => item.text).join('\n');
 
   console.log('Attempting picks email send', {
@@ -107,22 +417,22 @@ export async function sendPicksConfirmation({
     week,
   });
 
+  const html = renderPicksConfirmationHtml({
+    username,
+    week,
+    picks: sortedPicks,
+    appUrl,
+  });
+
+  const text = `Picks locked in for ${username} for Week ${week}.\n\n${summaryText}\n\nView live leaderboard at ${appUrl}/leaderboard/weekly\n\nGood luck this week.`;
+
   try {
     const result = await resend.emails.send({
       from: emailFrom,
       to: [email],
-      subject: `Feetsball picks submitted for Week ${week}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #0f172a;">
-          <h2 style="margin-bottom: 12px;">Picks locked in for ${username}</h2>
-          <p>Your picks for Week ${week} were submitted successfully.</p>
-          <ul style="padding-left: 20px; margin: 12px 0 20px;">
-            ${summaryHtml}
-          </ul>
-          <p>Good luck this week.</p>
-        </div>
-      `,
-      text: `Picks locked in for ${username} for Week ${week}.\n\n${summaryText}\n\nGood luck this week.`,
+      subject: `🏆 Feetsball Picks Confirmed for Week ${week} (${username})`,
+      html,
+      text,
     });
 
     console.log('Resend picks email result', result);
