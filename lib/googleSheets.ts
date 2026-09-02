@@ -635,8 +635,9 @@ export async function fetchTop25Games(week: string | number) {
     const topTeams = Object.keys(rankMap);
     const filteredGames = allGames.filter(
       (game) =>
-        topTeams.includes(game.homeTeam || game.home_team || '') ||
-        topTeams.includes(game.awayTeam || game.away_team || ''),
+        (topTeams.includes(game.homeTeam || game.home_team || '') ||
+          topTeams.includes(game.awayTeam || game.away_team || '')) &&
+        !game.completed,
     );
 
     return { games: filteredGames, rankMap };
@@ -649,7 +650,7 @@ export async function fetchTop25Games(week: string | number) {
 export async function populateWeeklySlate(
   games: Array<Record<string, any>>,
   rankMap: Record<string, number> = {},
-  spreadMap: Record<string, string | number> = {},
+  spreadMap: OddsMatchup[] | Record<string, string | number> = [],
 ) {
   if (!games || !Array.isArray(games) || games.length === 0) {
     return { games: 0, created: false };
@@ -686,33 +687,11 @@ export async function populateWeeklySlate(
     const hId = game.HomeID || game.homeId || game.home_id || '';
     const aTeam = game.AwayTeam || game.awayTeam || game.away_team || 'Unknown';
     const hTeam = game.HomeTeam || game.homeTeam || game.home_team || 'Unknown';
-    const spread = game.Spread !== undefined ? game.Spread : 'CHECK SPREAD';
     const kickoff = game.Kickoff_Time || game.kickoffTime || game.startDate || game.start_date || '';
 
-    const nameOverrides: Record<string, string> = {
-      Florida: 'Florida Gators',
-      Michigan: 'Michigan Wolverines',
-      'New Mexico': 'New Mexico Lobos',
-      Louisiana: 'Louisiana Ragin Cajuns',
-      Texas: 'Texas Longhorns',
-      Miami: 'Miami Hurricanes',
-    };
-
-    let lockedSpread: string | number = spread;
-
-    if (nameOverrides[hTeam]) {
-      lockedSpread = spreadMap[nameOverrides[hTeam]] ?? 'CHECK SPREAD';
-    } else if (spreadMap[hTeam] !== undefined) {
-      lockedSpread = spreadMap[hTeam];
-    } else {
-      const hTeamLower = normalizeTeamKey(hTeam);
-      for (const apiName of Object.keys(spreadMap)) {
-        if (normalizeTeamKey(apiName) === hTeamLower || normalizeTeamKey(apiName).startsWith(`${hTeamLower} `)) {
-          lockedSpread = spreadMap[apiName] ?? 'CHECK SPREAD';
-          break;
-        }
-      }
-    }
+    // Match against Odds API spreads
+    const matchedSpread = findConsensusSpread(hTeam, aTeam, spreadMap);
+    let lockedSpread: string | number = matchedSpread !== null ? matchedSpread : (game.Spread !== undefined ? game.Spread : 'CHECK SPREAD');
 
     if (lockedSpread === null || lockedSpread === undefined || lockedSpread === '') {
       lockedSpread = 'CHECK SPREAD';
@@ -842,7 +821,96 @@ export async function updateLiveScores() {
   return rows.length;
 }
 
-export async function getConsensusSpreads() {
+export interface OddsMatchup {
+  homeTeam: string;
+  awayTeam: string;
+  homeSpread: number | null;
+  awaySpread: number | null;
+  bookmaker: string;
+}
+
+const TEAM_ALIASES: Record<string, string[]> = {
+  'miami': ['miami fl', 'miami hurricanes', 'miami florida'],
+  'miami oh': ['miami ohio', 'miami oh redhawks'],
+  'ole miss': ['mississippi', 'ole miss rebels', 'mississippi rebels'],
+  'ul monroe': ['louisiana monroe', 'ulm warhawks', 'la monroe'],
+  'louisiana': ['louisiana lafayette', 'ragin cajuns', 'louisiana ragin cajuns'],
+  'hawaii': ['hawai i', 'hawaii rainbow warriors'],
+  'san jose state': ['san jose state', 'san josé state', 'sjsu'],
+  'utep': ['utep miners', 'texas el paso'],
+  'utsa': ['utsa roadrunners', 'texas san antonio'],
+  'byu': ['byu cougars', 'brigham young'],
+  'lsu': ['lsu tigers', 'louisiana state'],
+  'smu': ['smu mustangs', 'southern methodist'],
+  'usc': ['usc trojans', 'southern california'],
+  'ucf': ['ucf knights', 'central florida'],
+  'tcu': ['tcu horned frogs', 'texas christian'],
+  'unc': ['north carolina', 'unc tar heels'],
+  'pitt': ['pittsburgh', 'pitt panthers'],
+  'nc state': ['nc state wolfpack', 'north carolina state'],
+};
+
+export function isTeamMatch(cfbdName: string, oddsName: string): boolean {
+  const cNorm = normalizeTeamKey(cfbdName);
+  const oNorm = normalizeTeamKey(oddsName);
+
+  if (!cNorm || !oNorm) return false;
+  if (cNorm === oNorm) return true;
+
+  // Check aliases
+  for (const [key, aliases] of Object.entries(TEAM_ALIASES)) {
+    if (cNorm === key || aliases.includes(cNorm)) {
+      if (oNorm.includes(key) || aliases.some((a) => oNorm.includes(a) || a.includes(oNorm))) {
+        return true;
+      }
+    }
+  }
+
+  // Exact word boundary checks to avoid false positive prefix matches
+  if (!cNorm.includes('tech') && oNorm.includes('tech')) return false;
+  if (!cNorm.includes('state') && oNorm.includes('state')) return false;
+  if (!cNorm.includes('a and m') && !cNorm.includes('am') && (oNorm.includes('a and m') || oNorm.includes('am') || oNorm.includes('aggies'))) {
+    if (cNorm === 'texas' || cNorm === 'florida' || cNorm === 'alabama') return false;
+  }
+
+  const wordsC = cNorm.split(' ');
+  const wordsO = oNorm.split(' ');
+
+  // Check if odds name starts with the exact school words
+  if (wordsO.slice(0, wordsC.length).join(' ') === cNorm) {
+    return true;
+  }
+
+  return false;
+}
+
+export function findConsensusSpread(
+  homeTeam: string,
+  awayTeam: string,
+  matchups: OddsMatchup[] | Record<string, string | number>,
+): number | null {
+  if (!matchups) return null;
+
+  if (Array.isArray(matchups)) {
+    for (const m of matchups) {
+      if (isTeamMatch(homeTeam, m.homeTeam) && isTeamMatch(awayTeam, m.awayTeam)) {
+        return m.homeSpread;
+      }
+    }
+    return null;
+  }
+
+  // Fallback for object map
+  const direct = matchups[homeTeam];
+  if (direct !== undefined && direct !== null) {
+    const num = Number(direct);
+    return Number.isFinite(num) ? num : null;
+  }
+
+  return null;
+}
+
+export async function getConsensusSpreads(): Promise<OddsMatchup[]> {
   if (!CONFIG.ODDS_KEY) {
     throw new Error('ODDS_KEY is not configured.');
   }
@@ -856,7 +924,7 @@ export async function getConsensusSpreads() {
   }
 
   const data = (await response.json()) as Array<Record<string, any>>;
-  const spreadMap: Record<string, string | number> = {};
+  const matchups: OddsMatchup[] = [];
 
   data.forEach((game) => {
     const bookmaker = game?.bookmakers?.find((entry: Record<string, any>) => entry.key === 'draftkings') || game?.bookmakers?.[0];
@@ -866,12 +934,18 @@ export async function getConsensusSpreads() {
     if (!marketData) return;
 
     const homeOutcome = marketData.outcomes?.find((outcome: Record<string, any>) => outcome.name === game.home_team);
-    if (homeOutcome) {
-      spreadMap[game.home_team] = homeOutcome.point;
-    }
+    const awayOutcome = marketData.outcomes?.find((outcome: Record<string, any>) => outcome.name === game.away_team);
+
+    matchups.push({
+      homeTeam: game.home_team,
+      awayTeam: game.away_team,
+      homeSpread: homeOutcome && homeOutcome.point !== undefined ? Number(homeOutcome.point) : null,
+      awaySpread: awayOutcome && awayOutcome.point !== undefined ? Number(awayOutcome.point) : null,
+      bookmaker: bookmaker.title || 'DraftKings',
+    });
   });
 
-  return spreadMap;
+  return matchups;
 }
 
 export async function exportOddsAPITeamNames() {
