@@ -90,7 +90,7 @@ export default function SeasonLeaderboard() {
         if (hasScores) {
           return {
             week: w,
-            winner: 'Pending Archive',
+            winner: 'TBD',
             status: 'Live',
           };
         }
@@ -141,7 +141,7 @@ export default function SeasonLeaderboard() {
       }}
     >
       <div style={{ maxWidth: "700px", margin: "0 auto", width: "100%", display: "flex", flexDirection: "column", gap: "8px" }}>
-        
+
         {/* COMPACT BRAND HEADER */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 4px 0" }}>
           <div>

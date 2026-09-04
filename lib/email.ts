@@ -228,51 +228,61 @@ export function renderPicksConfirmationHtml({
   const sortedPicks = [...picks].sort((a, b) => (Number(b.wager) || 0) - (Number(a.wager) || 0));
   const totalPoints = sortedPicks.reduce((acc, p) => acc + (Number(p.wager) || 0), 0);
 
-  const getWagerBadgeColor = (wager: number) => {
-    if (wager === 5) return { bg: '#FEF3C7', text: '#92400E', border: '#FDE68A', label: '⭐ 5 POINTS' };
-    if (wager === 4) return { bg: '#EFF6FF', text: '#1E40AF', border: '#BFDBFE', label: '4 POINTS' };
-    if (wager === 3) return { bg: '#F3E8FF', text: '#6B21A8', border: '#E9D5FF', label: '3 POINTS' };
-    if (wager === 2) return { bg: '#F1F5F9', text: '#334155', border: '#CBD5E1', label: '2 POINTS' };
-    return { bg: '#F8FAFC', text: '#475569', border: '#E2E8F0', label: '1 POINT' };
-  };
-
   const pickCardsHtml = sortedPicks
     .map((pick, index) => {
-      const badge = getWagerBadgeColor(pick.wager);
+      const wagerLabel = `${pick.wager} ${pick.wager === 1 ? 'POINT' : 'POINTS'}`;
       const formattedSpread = formatPickSpread(pick.spread);
-      const spreadPill = formattedSpread
-        ? `<span style="display: inline-block; background-color: #f1f5f9; color: #0f172a; font-weight: 800; font-size: 12px; padding: 3px 8px; border-radius: 6px; border: 1px solid #cbd5e1;">${formattedSpread}</span>`
-        : '';
-      const rankBadge = pick.teamRank ? `<span style="color: #64748b; font-size: 11px; font-weight: 900; margin-right: 3px;">#${pick.teamRank}</span>` : '';
+      const rankBadge = pick.teamRank ? `<span style="color: #64748b; font-size: 11px; font-weight: 900; margin-right: 4px;">#${pick.teamRank}</span>` : '';
       const opponentText = pick.opponent ? `<div style="font-size: 11px; color: #64748b; font-weight: 600; margin-top: 2px;">${pick.isHome ? 'vs' : '@'} ${pick.opponentRank ? '#' + pick.opponentRank + ' ' : ''}${pick.opponent}</div>` : '';
 
       return `
         <!-- Pick Card ${index + 1} -->
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 10px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; border-collapse: separate; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 8px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; border-collapse: separate; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);">
           <tr>
-            <td style="padding: 10px 14px;">
+            <td style="padding: 10px 12px;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td width="36" style="vertical-align: middle;">
-                    ${
-                      pick.teamLogo
-                        ? `<img src="${pick.teamLogo}" alt="${pick.team}" width="28" height="28" style="display: block; border-radius: 4px; object-fit: contain; width: 28px; height: 28px;" />`
-                        : `<span style="display: inline-block; width: 28px; height: 28px; background-color: #e2e8f0; border-radius: 4px; text-align: center; line-height: 28px; font-size: 12px;">🏈</span>`
-                    }
+                  <!-- Left: Logo & Team Info -->
+                  <td style="vertical-align: middle;">
+                    <table role="presentation" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td width="32" style="vertical-align: middle;">
+                          ${
+                            pick.teamLogo
+                              ? `<img src="${pick.teamLogo}" alt="${pick.team}" width="28" height="28" style="display: block; border-radius: 4px; object-fit: contain; width: 28px; height: 28px;" />`
+                              : `<span style="display: inline-block; width: 28px; height: 28px; background-color: #e2e8f0; border-radius: 4px; text-align: center; line-height: 28px; font-size: 12px;">🏈</span>`
+                          }
+                        </td>
+                        <td style="padding-left: 10px; vertical-align: middle;">
+                          <div style="font-size: 15px; font-weight: 800; color: #0f172a; line-height: 1.2;">
+                            ${rankBadge}${pick.team}
+                          </div>
+                          ${opponentText}
+                        </td>
+                      </tr>
+                    </table>
                   </td>
-                  <td style="padding-left: 10px; vertical-align: middle;">
-                    <div style="font-size: 15px; font-weight: 800; color: #0f172a; line-height: 1.2;">
-                      ${rankBadge}${pick.team}
-                    </div>
-                    ${opponentText}
-                  </td>
-                  <td align="right" style="vertical-align: middle;">
-                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
-                      <span style="display: inline-block; background-color: ${badge.bg}; color: ${badge.text}; border: 1px solid ${badge.border}; font-size: 11px; font-weight: 900; padding: 3px 8px; border-radius: 6px; letter-spacing: 0.5px;">
-                        ${badge.label}
-                      </span>
-                      ${spreadPill}
-                    </div>
+
+                  <!-- Right: Badges Flush to the Right Margin -->
+                  <td align="right" style="vertical-align: middle; text-align: right; white-space: nowrap; padding-left: 8px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" align="right" style="border-collapse: collapse; margin-left: auto;">
+                      <tr>
+                        <td style="vertical-align: middle; padding-right: 6px;">
+                          <span style="display: inline-block; background-color: #0f172a; color: #ffffff; font-size: 11px; font-weight: 900; padding: 4px 8px; border-radius: 6px; letter-spacing: 0.5px; white-space: nowrap;">
+                            ${wagerLabel}
+                          </span>
+                        </td>
+                        ${
+                          formattedSpread
+                            ? `<td style="vertical-align: middle;">
+                                <span style="display: inline-block; background-color: #f1f5f9; color: #0f172a; font-weight: 800; font-size: 12px; padding: 4px 8px; border-radius: 6px; border: 1px solid #cbd5e1; white-space: nowrap; min-width: 44px; text-align: center;">
+                                  ${formattedSpread}
+                                </span>
+                              </td>`
+                            : ''
+                        }
+                      </tr>
+                    </table>
                   </td>
                 </tr>
               </table>
