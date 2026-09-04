@@ -41,6 +41,7 @@ const resolveWeeklyWinner = (week: number, tiedUsers: string[], allScores: Score
 
 export default function SeasonLeaderboard() {
   const [data, setData] = useState<UserData[]>([]);
+  const [archivedWeeks, setArchivedWeeks] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const weeks = Array.from({ length: 14 }, (_, i) => i + 1);
 
@@ -49,28 +50,68 @@ export default function SeasonLeaderboard() {
     fetch('/api/get-season-results')
       .then((res) => res.json())
       .then((json) => {
-        setData(Array.isArray(json) ? json : []);
+        if (Array.isArray(json)) {
+          setData(json);
+          setArchivedWeeks([]);
+        } else if (json && Array.isArray(json.data)) {
+          setData(json.data);
+          setArchivedWeeks(Array.isArray(json.archivedWeeks) ? json.archivedWeeks : []);
+        } else {
+          setData([]);
+          setArchivedWeeks([]);
+        }
         setLoading(false);
       })
       .catch(() => {
         setData([]);
+        setArchivedWeeks([]);
         setLoading(false);
       });
   }, []);
+
+  const ranks = useMemo(() => {
+    let currentRank = 1;
+    return data.map((user, idx) => {
+      if (idx > 0 && user.total < data[idx - 1].total) {
+        currentRank = idx + 1;
+      }
+      return currentRank;
+    });
+  }, [data]);
 
   const weeklyWinners = useMemo(() => {
     if (!data.length) return [];
 
     return weeks.map(w => {
+      const isArchived = archivedWeeks.includes(w);
+
+      if (!isArchived) {
+        const hasScores = data.some(user => (user.weeks[w] || 0) !== 0);
+        if (hasScores) {
+          return {
+            week: w,
+            winner: 'Pending Archive',
+            status: 'Live',
+          };
+        }
+        return {
+          week: w,
+          winner: 'TBD',
+          status: 'Upcoming',
+        };
+      }
+
       const scoresForWeek = data.map(user => ({
         username: user.username,
         points: user.weeks[w] || 0
-      })).filter(s => s.points > 0);
-
-      if (scoresForWeek.length === 0) return { week: w, winner: 'TBD', status: 'Upcoming' };
+      }));
 
       const maxScore = Math.max(...scoresForWeek.map(s => s.points));
       const leaders = scoresForWeek.filter(s => s.points === maxScore).map(l => l.username);
+
+      if (leaders.length === 0) {
+        return { week: w, winner: 'TBD', status: 'Upcoming' };
+      }
 
       const result = resolveWeeklyWinner(w, leaders, data.flatMap(user =>
         Object.entries(user.weeks).map(([wk, pts]) => ({
@@ -86,7 +127,7 @@ export default function SeasonLeaderboard() {
         status: result.method
       };
     }).filter(w => w.winner !== 'TBD');
-  }, [data, weeks]);
+  }, [data, weeks, archivedWeeks]);
 
   return (
     <div
@@ -160,8 +201,8 @@ export default function SeasonLeaderboard() {
                   <span style={{
                     fontSize: '9px',
                     fontWeight: '800',
-                    color: w.status.includes('Pending') || w.status.includes('Awaiting') ? '#D97706' : '#166534',
-                    backgroundColor: w.status.includes('Pending') || w.status.includes('Awaiting') ? '#FEF3C7' : '#DCFCE7',
+                    color: w.status === 'Live' || w.status.includes('Pending') || w.status.includes('Awaiting') ? '#D97706' : '#166534',
+                    backgroundColor: w.status === 'Live' || w.status.includes('Pending') || w.status.includes('Awaiting') ? '#FEF3C7' : '#DCFCE7',
                     padding: '2px 6px',
                     borderRadius: '6px',
                     flexShrink: 0,
@@ -206,7 +247,7 @@ export default function SeasonLeaderboard() {
               <thead>
                 <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
                   <th style={{ padding: '8px 10px', textAlign: 'left', position: 'sticky', left: 0, backgroundColor: '#F8FAFC', zIndex: 2, fontSize: '10px', fontWeight: '900', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748B' }}>
-                    User
+                    # &nbsp; User
                   </th>
                   {weeks.map((w) => (
                     <th key={w} style={{ padding: '8px 4px', textAlign: 'center', fontSize: '10px', fontWeight: '900', color: '#64748B' }}>
@@ -221,8 +262,25 @@ export default function SeasonLeaderboard() {
               <tbody>
                 {data.map((user: UserData, idx: number) => (
                   <tr key={user.username} style={{ borderBottom: idx === data.length - 1 ? 'none' : '1px solid #F1F5F9' }}>
-                    <td style={{ padding: '8px 10px', fontWeight: '900', position: 'sticky', left: 0, backgroundColor: '#FFFFFF', zIndex: 1, whiteSpace: 'nowrap', color: '#0F172A', fontSize: '13px' }}>
-                      {user.username}
+                    <td style={{ padding: '8px 10px', position: 'sticky', left: 0, backgroundColor: '#FFFFFF', zIndex: 1, whiteSpace: 'nowrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{
+                          fontSize: '10px',
+                          fontWeight: '900',
+                          color: ranks[idx] === 1 ? '#B45309' : ranks[idx] === 2 ? '#475569' : ranks[idx] === 3 ? '#92400E' : '#94A3B8',
+                          backgroundColor: ranks[idx] === 1 ? '#FEF3C7' : ranks[idx] === 2 ? '#F1F5F9' : ranks[idx] === 3 ? '#FEF3C7' : 'transparent',
+                          padding: '2px 5px',
+                          borderRadius: '5px',
+                          minWidth: '22px',
+                          textAlign: 'center',
+                          display: 'inline-block',
+                        }}>
+                          #{ranks[idx]}
+                        </span>
+                        <span style={{ fontWeight: '900', color: '#0F172A', fontSize: '13px' }}>
+                          {user.username}
+                        </span>
+                      </div>
                     </td>
                     {weeks.map((w) => {
                       const score = user.weeks[w] || 0;

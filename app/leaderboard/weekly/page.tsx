@@ -1,6 +1,6 @@
 "use client";
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 type WeeklyUser = {
   username?: string;
@@ -13,34 +13,51 @@ export default function WeeklyLeaderboard() {
   const [data, setData] = useState<WeeklyUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [picksHidden, setPicksHidden] = useState(false);
+  const [isArchived, setIsArchived] = useState(false);
 
   useEffect(() => {
     setLoading(true);
     setPicksHidden(false);
+    setIsArchived(false);
     fetch(`/api/get-weekly-results?week=${week}`)
       .then((res) => res.json())
       .then((resData) => {
         if (resData && !Array.isArray(resData) && resData.picksHidden) {
           setPicksHidden(true);
           setData([]);
+          setIsArchived(false);
         } else if (Array.isArray(resData)) {
           setPicksHidden(false);
           setData(resData);
+          setIsArchived(false);
         } else if (resData && Array.isArray(resData.data)) {
           setPicksHidden(false);
           setData(resData.data);
+          setIsArchived(Boolean(resData.isArchived));
         } else {
           setPicksHidden(false);
           setData([]);
+          setIsArchived(false);
         }
         setLoading(false);
       })
       .catch(() => {
         setPicksHidden(false);
         setData([]);
+        setIsArchived(false);
         setLoading(false);
       });
   }, [week]);
+
+  const ranks = useMemo(() => {
+    let currentRank = 1;
+    return data.map((user, idx) => {
+      if (idx > 0 && (user.total ?? 0) < (data[idx - 1].total ?? 0)) {
+        currentRank = idx + 1;
+      }
+      return currentRank;
+    });
+  }, [data]);
 
   const getStyle = (outcome?: string) => {
     if (outcome === 'correct') return { backgroundColor: '#DCFCE7', color: '#166534', border: '1px solid #BBF7D0' };
@@ -81,10 +98,22 @@ export default function WeeklyLeaderboard() {
 
         {/* SECTION HEADER & WEEK SELECTOR */}
         <div style={{ padding: "4px 4px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: "12px", fontWeight: "900", color: "#64748b", letterSpacing: "1px", textTransform: "uppercase" }}>
               Weekly Recap
             </span>
+            {!loading && !picksHidden && data.length > 0 && (
+              <span style={{
+                fontSize: '10px',
+                fontWeight: '800',
+                padding: '2px 8px',
+                borderRadius: '6px',
+                backgroundColor: isArchived ? '#DCFCE7' : '#FEF3C7',
+                color: isArchived ? '#166534' : '#D97706',
+              }}>
+                {isArchived ? '✓ Final' : '⚡ Live'}
+              </span>
+            )}
           </div>
 
           <select
@@ -158,7 +187,7 @@ export default function WeeklyLeaderboard() {
               <thead>
                 <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
                   <th style={{ padding: '8px 10px', fontSize: '10px', fontWeight: '900', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748B', position: 'sticky', left: 0, backgroundColor: '#F8FAFC', zIndex: 2 }}>
-                    User
+                    # &nbsp; User
                   </th>
                   {[5, 4, 3, 2, 1].map((num) => (
                     <th key={num} style={{ padding: '8px 4px', textAlign: 'center', fontSize: '10px', fontWeight: '900', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748B' }}>
@@ -173,8 +202,25 @@ export default function WeeklyLeaderboard() {
               <tbody>
                 {data.map((user: WeeklyUser, idx: number) => (
                   <tr key={user?.username || idx} style={{ borderBottom: idx === data.length - 1 ? 'none' : '1px solid #F1F5F9' }}>
-                    <td style={{ padding: '8px 10px', fontWeight: '900', color: '#0F172A', position: 'sticky', left: 0, backgroundColor: '#FFFFFF', zIndex: 1, whiteSpace: 'nowrap', fontSize: '13px' }}>
-                      {user?.username || 'Unknown'}
+                    <td style={{ padding: '8px 10px', position: 'sticky', left: 0, backgroundColor: '#FFFFFF', zIndex: 1, whiteSpace: 'nowrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{
+                          fontSize: '10px',
+                          fontWeight: '900',
+                          color: ranks[idx] === 1 ? '#B45309' : ranks[idx] === 2 ? '#475569' : ranks[idx] === 3 ? '#92400E' : '#94A3B8',
+                          backgroundColor: ranks[idx] === 1 ? '#FEF3C7' : ranks[idx] === 2 ? '#F1F5F9' : ranks[idx] === 3 ? '#FEF3C7' : 'transparent',
+                          padding: '2px 5px',
+                          borderRadius: '5px',
+                          minWidth: '22px',
+                          textAlign: 'center',
+                          display: 'inline-block',
+                        }}>
+                          #{ranks[idx]}
+                        </span>
+                        <span style={{ fontWeight: '900', color: '#0F172A', fontSize: '13px' }}>
+                          {user?.username || 'Unknown'}
+                        </span>
+                      </div>
                     </td>
                     {[5, 4, 3, 2, 1].map((num) => {
                       const p = user?.picks?.[num];

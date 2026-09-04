@@ -14,6 +14,9 @@ type SlateGame = {
   HomeTeam: string;
   HomeLogo: string;
   HomeRank?: string | number;
+  AwayPoints?: number;
+  HomePoints?: number;
+  Status?: string;
 };
 
 const normalizeTeamName = (value: unknown): string =>
@@ -38,6 +41,49 @@ const teamMatches = (savedTeam: string, slateTeam: string) =>
 
 const matchesGame = (pick: PickEntry, gameId: string) =>
   normalizeGameId(pick.gameId) === normalizeGameId(gameId);
+
+const parseSpreadValue = (value: unknown) => {
+  const raw = String(value ?? '').trim();
+  if (!raw || raw === 'PUSH') return 0;
+  const cleaned = raw.replace(/[^0-9.+-]/g, '');
+  const numeric = Number(cleaned);
+  return Number.isFinite(numeric) ? numeric : 0;
+};
+
+const isGameFinal = (game: SlateGame) => String(game.Status ?? '').toLowerCase() === 'final';
+const isGameLive = (game: SlateGame) => String(game.Status ?? '').toLowerCase() === 'live';
+const hasScoreData = (game: SlateGame) =>
+  isGameFinal(game) ||
+  isGameLive(game) ||
+  (game.AwayPoints !== undefined && game.AwayPoints > 0) ||
+  (game.HomePoints !== undefined && game.HomePoints > 0);
+
+const getPickCoverOutcome = (game: SlateGame, selectedTeam: string): 'correct' | 'incorrect' | 'push' | null => {
+  if (!game || !selectedTeam) return null;
+  if (!isGameFinal(game) && !isGameLive(game) && !hasScoreData(game)) return null;
+
+  const awayKey = normalizeTeamName(game.AwayTeam);
+  const homeKey = normalizeTeamName(game.HomeTeam);
+  const selectedKey = normalizeTeamName(selectedTeam);
+  if (!selectedKey || (!awayKey && !homeKey)) return null;
+
+  const spread = parseSpreadValue(game.Spread);
+  const awayPoints = Number(game.AwayPoints ?? 0);
+  const homePoints = Number(game.HomePoints ?? 0);
+
+  const selectedSideMargin = selectedKey === awayKey
+    ? awayPoints - homePoints
+    : selectedKey === homeKey
+      ? homePoints - awayPoints
+      : 0;
+
+  const selectedSideSpread = selectedKey === awayKey ? -spread : spread;
+  const adjustedMargin = selectedSideMargin + selectedSideSpread;
+
+  if (adjustedMargin > 0) return 'correct';
+  if (adjustedMargin === 0) return 'push';
+  return 'incorrect';
+};
 
 const getEasternNow = () => new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
 
@@ -513,6 +559,14 @@ export default function Home() {
               const isAwaySelected = myPick && teamMatches(myPick.team, game.AwayTeam);
               const isHomeSelected = myPick && teamMatches(myPick.team, game.HomeTeam);
 
+              const gameScoresActive = hasScoreData(game);
+              const awayPoints = Number(game.AwayPoints ?? 0);
+              const homePoints = Number(game.HomePoints ?? 0);
+              const awayWinning = awayPoints > homePoints;
+              const homeWinning = homePoints > awayPoints;
+
+              const pickCoverOutcome = myPick ? getPickCoverOutcome(game, myPick.team) : null;
+
               return (
                 <div
                   key={game.GameID}
@@ -522,20 +576,67 @@ export default function Home() {
                     padding: "8px 10px",
                     boxShadow: "0 2px 4px rgba(15, 23, 42, 0.04)",
                     border: myPick ? "1.5px solid #2563EB" : "1px solid #E2E8F0",
-                    opacity: gameLocked ? 0.75 : 1,
+                    opacity: gameLocked ? 0.88 : 1,
                   }}
                 >
-                  {/* TIME & LOCK HEADER */}
+                  {/* TIME & LOCK & LIVE/FINAL STATUS HEADER */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', fontSize: '10px', fontWeight: '800', color: '#64748b' }}>
-                    <span>{formattedTime}</span>
-                    {gameLocked && (
-                      <span style={{ color: '#ef4444', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '2px' }}>
-                        🔒 LOCKED
-                      </span>
-                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>{formattedTime}</span>
+                      {isGameLive(game) && (
+                        <span style={{
+                          backgroundColor: '#FEF3C7',
+                          color: '#D97706',
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          fontWeight: '900',
+                          fontSize: '9px',
+                          letterSpacing: '0.5px',
+                        }}>
+                          ⚡ LIVE
+                        </span>
+                      )}
+                      {isGameFinal(game) && (
+                        <span style={{
+                          backgroundColor: '#F1F5F9',
+                          color: '#475569',
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          fontWeight: '900',
+                          fontSize: '9px',
+                          letterSpacing: '0.5px',
+                        }}>
+                          FINAL
+                        </span>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {myPick && pickCoverOutcome && (
+                        <span style={{
+                          fontSize: '9px',
+                          fontWeight: '900',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          backgroundColor: pickCoverOutcome === 'correct' ? '#DCFCE7' : pickCoverOutcome === 'incorrect' ? '#FEE2E2' : '#F1F5F9',
+                          color: pickCoverOutcome === 'correct' ? '#166534' : pickCoverOutcome === 'incorrect' ? '#991B1B' : '#475569',
+                        }}>
+                          {pickCoverOutcome === 'correct'
+                            ? `${isGameFinal(game) ? '✓ WON' : '✓ COVERING'} (+${myPick.wager || 0})`
+                            : pickCoverOutcome === 'incorrect'
+                              ? `${isGameFinal(game) ? '✗ LOST' : '✗ NOT COVERING'} (-${myPick.wager || 0})`
+                              : 'PUSH (0)'}
+                        </span>
+                      )}
+                      {gameLocked && !pickCoverOutcome && (
+                        <span style={{ color: '#ef4444', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                          🔒 LOCKED
+                        </span>
+                      )}
+                    </div>
                   </div>
 
-{/* TEAMS LIST (HORIZONTAL COMPACT ROWS) */}
+                  {/* TEAMS LIST (HORIZONTAL COMPACT ROWS) */}
                   <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                     
                     {/* AWAY TEAM ROW */}
@@ -584,19 +685,32 @@ export default function Home() {
                           {game.AwayTeam}
                         </span>
                       </div>
-                      {awaySpread && (
-                        <span style={{
-                          fontSize: "12px",
-                          fontWeight: "900",
-                          padding: "2px 6px",
-                          borderRadius: "6px",
-                          background: isAwaySelected ? "rgba(255,255,255,0.2)" : "#E2E8F0",
-                          color: isAwaySelected ? "#FFFFFF" : "#334155",
-                          flexShrink: 0
-                        }}>
-                          {awaySpread}
-                        </span>
-                      )}
+
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
+                        {awaySpread && (
+                          <span style={{
+                            fontSize: "12px",
+                            fontWeight: "900",
+                            padding: "2px 6px",
+                            borderRadius: "6px",
+                            background: isAwaySelected ? "rgba(255,255,255,0.2)" : "#E2E8F0",
+                            color: isAwaySelected ? "#FFFFFF" : "#334155",
+                          }}>
+                            {awaySpread}
+                          </span>
+                        )}
+                        {gameScoresActive && (
+                          <span style={{
+                            fontSize: "15px",
+                            fontWeight: "900",
+                            minWidth: "24px",
+                            textAlign: "right",
+                            color: isAwaySelected ? "#FFFFFF" : awayWinning ? "#0F172A" : "#64748B",
+                          }}>
+                            {awayPoints}
+                          </span>
+                        )}
+                      </div>
                     </button>
 
                     {/* HOME TEAM ROW */}
@@ -645,19 +759,32 @@ export default function Home() {
                           {game.HomeTeam}
                         </span>
                       </div>
-                      {homeSpread && (
-                        <span style={{
-                          fontSize: "12px",
-                          fontWeight: "900",
-                          padding: "2px 6px",
-                          borderRadius: "6px",
-                          background: isHomeSelected ? "rgba(255,255,255,0.2)" : "#E2E8F0",
-                          color: isHomeSelected ? "#FFFFFF" : "#334155",
-                          flexShrink: 0
-                        }}>
-                          {homeSpread}
-                        </span>
-                      )}
+
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
+                        {homeSpread && (
+                          <span style={{
+                            fontSize: "12px",
+                            fontWeight: "900",
+                            padding: "2px 6px",
+                            borderRadius: "6px",
+                            background: isHomeSelected ? "rgba(255,255,255,0.2)" : "#E2E8F0",
+                            color: isHomeSelected ? "#FFFFFF" : "#334155",
+                          }}>
+                            {homeSpread}
+                          </span>
+                        )}
+                        {gameScoresActive && (
+                          <span style={{
+                            fontSize: "15px",
+                            fontWeight: "900",
+                            minWidth: "24px",
+                            textAlign: "right",
+                            color: isHomeSelected ? "#FFFFFF" : homeWinning ? "#0F172A" : "#64748B",
+                          }}>
+                            {homePoints}
+                          </span>
+                        )}
+                      </div>
                     </button>
                   </div>
 

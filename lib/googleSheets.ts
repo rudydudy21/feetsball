@@ -314,6 +314,59 @@ export const isPastSaturdayNoonET = () => {
   return (day === 6 && now.getHours() >= 12) || day === 0;
 };
 
+export async function getArchivedWeeks(): Promise<number[]> {
+  try {
+    await doc.loadInfo();
+    const archiveSheet = doc.sheetsByTitle['Master_Archive'];
+    if (!archiveSheet) return [];
+    const rows = await archiveSheet.getRows();
+    const weeks = new Set<number>();
+    for (const r of rows) {
+      const w = Number(r.get('Week') || (Array.isArray(r.get('values')) ? r.get('values')?.[0] : null) || 0);
+      if (Number.isFinite(w) && w > 0) {
+        weeks.add(w);
+      }
+    }
+    return Array.from(weeks).sort((a, b) => a - b);
+  } catch (error) {
+    console.error('Failed to get archived weeks:', error);
+    return [];
+  }
+}
+
+export async function getMasterArchiveGames(): Promise<Array<{
+  Week: string;
+  GameID: string;
+  AwayTeam: string;
+  HomeTeam: string;
+  Spread: string | number;
+  AwayPoints: number;
+  HomePoints: number;
+  Status: string;
+  Winner_Against_Spread?: string;
+}>> {
+  try {
+    await doc.loadInfo();
+    const archiveSheet = doc.sheetsByTitle['Master_Archive'];
+    if (!archiveSheet) return [];
+    const rows = await archiveSheet.getRows();
+    return rows.map((row) => ({
+      Week: asString(row.get('Week')),
+      GameID: asString(row.get('GameID')),
+      AwayTeam: asString(row.get('AwayTeam')),
+      HomeTeam: asString(row.get('HomeTeam')),
+      Spread: row.get('Spread') ?? '',
+      AwayPoints: Number(row.get('AwayPoints') ?? 0),
+      HomePoints: Number(row.get('HomePoints') ?? 0),
+      Status: asString(row.get('Status')) || 'Final',
+      Winner_Against_Spread: asString(row.get('Winner_Against_Spread') || row.get('Winner')),
+    }));
+  } catch (error) {
+    console.error('Failed to get master archive games:', error);
+    return [];
+  }
+}
+
 export async function getWeeklyResultsForWeek(week: string) {
   const weekNum = Number(week);
   const isBowlWeek = weekNum >= 12 && weekNum <= 14;
@@ -331,14 +384,31 @@ export async function getWeeklyResultsForWeek(week: string) {
       picksHidden: true,
       week,
       currentWeek,
+      isArchived: false,
       data: [],
     };
   }
 
-  const weeklySlate = await getWeeklySlate();
-  const slateByGameId = new Map(
-    weeklySlate.map((game) => [asString(game.GameID), game]),
-  );
+  const [weeklySlate, archivedGames, archivedWeeks] = await Promise.all([
+    getWeeklySlate().catch(() => [] as Awaited<ReturnType<typeof getWeeklySlate>>),
+    getMasterArchiveGames().catch(() => [] as Awaited<ReturnType<typeof getMasterArchiveGames>>),
+    getArchivedWeeks().catch(() => [] as number[]),
+  ]);
+
+  const isArchived = archivedWeeks.includes(weekNum);
+
+  const slateByGameId = new Map<string, any>();
+  // Archived games first
+  for (const game of archivedGames) {
+    slateByGameId.set(asString(game.GameID), {
+      ...game,
+      Status: 'Final',
+    });
+  }
+  // Active weekly slate overrides or adds
+  for (const game of weeklySlate) {
+    slateByGameId.set(asString(game.GameID), game);
+  }
 
   // Get all registered users
   const usersSheet = await getSheetByTitle('Users');
@@ -418,22 +488,40 @@ export async function getWeeklyResultsForWeek(week: string) {
     byUser.set(username, { username, picks: {}, total: penalty });
   }
 
-  return Array.from(byUser.values()).sort((a, b) => b.total - a.total);
+  const sortedData = Array.from(byUser.values()).sort((a, b) => b.total - a.total);
+
+  return {
+    data: sortedData,
+    isArchived,
+    week,
+    currentWeek,
+  };
 }
 
 export async function getSeasonResults() {
-  const picksSheet = await getSheetByTitle('Picks');
-  const pickRows = await picksSheet.getRows();
-  const weeklySlate = await getWeeklySlate();
-  const slateByGameId = new Map(
-    weeklySlate.map((game) => [asString(game.GameID), game]),
-  );
+  const [pickRows, weeklySlate, archivedGames, archivedWeeks, usersRows, currentWeek] = await Promise.all([
+    getSheetByTitle('Picks').then((s) => s.getRows()).catch(() => [] as any[]),
+    getWeeklySlate().catch(() => [] as Awaited<ReturnType<typeof getWeeklySlate>>),
+    getMasterArchiveGames().catch(() => [] as Awaited<ReturnType<typeof getMasterArchiveGames>>),
+    getArchivedWeeks().catch(() => [] as number[]),
+    getSheetByTitle('Users').then((s) => s.getRows()).catch(() => [] as any[]),
+    getCurrentWeek().catch(() => '1'),
+  ]);
 
-  // Get all registered users and current week info
-  const usersSheet = await getSheetByTitle('Users');
-  const usersRows = await usersSheet.getRows();
-  const currentWeek = await getCurrentWeek();
   const currentWeekNum = Number(currentWeek);
+
+  const slateByGameId = new Map<string, any>();
+  // Archived historical games
+  for (const game of archivedGames) {
+    slateByGameId.set(asString(game.GameID), {
+      ...game,
+      Status: 'Final',
+    });
+  }
+  // Current active weekly slate
+  for (const game of weeklySlate) {
+    slateByGameId.set(asString(game.GameID), game);
+  }
 
   const userTotals = new Map<string, { username: string; weeks: Record<number, number>; total: number }>();
 
@@ -515,7 +603,13 @@ export async function getSeasonResults() {
     }
   }
 
-  return Array.from(userTotals.values()).sort((a, b) => b.total - a.total);
+  const sortedData = Array.from(userTotals.values()).sort((a, b) => b.total - a.total);
+
+  return {
+    data: sortedData,
+    archivedWeeks,
+    currentWeek: currentWeekNum,
+  };
 }
 
 export async function getLeagueMasterCode() {
@@ -734,14 +828,39 @@ export async function archiveCurrentWeek() {
 
   let archiveSheet = doc.sheetsByTitle['Master_Archive'];
   if (!archiveSheet) {
-    archiveSheet = await doc.addSheet({ title: 'Master_Archive' });
+    archiveSheet = await doc.addSheet({
+      title: 'Master_Archive',
+      headerValues: [
+        'Week',
+        'GameID',
+        'AwayTeam',
+        'HomeTeam',
+        'Spread',
+        'AwayPoints',
+        'HomePoints',
+        'Status',
+        'Winner_Against_Spread',
+      ],
+    });
   }
 
-  const archiveRows: Array<Array<any>> = [];
+  // Delete existing rows for this week to prevent duplicates if re-archived
+  try {
+    const existingRows = await archiveSheet.getRows();
+    for (const existingRow of existingRows) {
+      if (asString(existingRow.get('Week')) === currentWeek) {
+        await existingRow.delete();
+      }
+    }
+  } catch (error) {
+    console.warn('Could not inspect/clear existing rows in Master_Archive:', error);
+  }
 
-  rows.forEach((row) => {
+  const archiveRows: Array<Record<string, any>> = [];
+
+  for (const row of rows) {
     const status = asString(row.get('Status')).toLowerCase();
-    if (status !== 'final') return;
+    if (status !== 'final') continue;
 
     const awayPoints = Number(row.get('AwayPoints') ?? 0);
     const homePoints = Number(row.get('HomePoints') ?? 0);
@@ -756,21 +875,21 @@ export async function archiveCurrentWeek() {
     else if (margin < 0) winner = awayTeam;
     else winner = 'PUSH';
 
-    archiveRows.push([
-      currentWeek,
-      gameId,
-      awayTeam,
-      homeTeam,
-      row.get('Spread'),
-      awayPoints,
-      homePoints,
-      'Final',
-      winner,
-    ]);
-  });
+    archiveRows.push({
+      Week: currentWeek,
+      GameID: gameId,
+      AwayTeam: awayTeam,
+      HomeTeam: homeTeam,
+      Spread: row.get('Spread') ?? '',
+      AwayPoints: awayPoints,
+      HomePoints: homePoints,
+      Status: 'Final',
+      Winner_Against_Spread: winner,
+    });
+  }
 
   if (archiveRows.length > 0) {
-    await archiveSheet.addRows(archiveRows.map((row) => ({ values: row })) as any);
+    await archiveSheet.addRows(archiveRows);
   }
 
   return archiveRows.length;
