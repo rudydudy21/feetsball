@@ -50,13 +50,31 @@ const parseSpreadValue = (value: unknown) => {
   return Number.isFinite(numeric) ? numeric : 0;
 };
 
+const isGameStarted = (kickoff: string | undefined) => {
+  if (!kickoff) return false;
+  const kickoffDate = new Date(kickoff);
+  if (Number.isNaN(kickoffDate.getTime())) return false;
+  return kickoffDate <= new Date();
+};
+
 const isGameFinal = (game: SlateGame) => String(game.Status ?? '').toLowerCase() === 'final';
-const isGameLive = (game: SlateGame) => String(game.Status ?? '').toLowerCase() === 'live';
-const hasScoreData = (game: SlateGame) =>
-  isGameFinal(game) ||
-  isGameLive(game) ||
-  (game.AwayPoints !== undefined && game.AwayPoints > 0) ||
-  (game.HomePoints !== undefined && game.HomePoints > 0);
+
+const isGameLive = (game: SlateGame) => {
+  if (isGameFinal(game)) return false;
+  if (!isGameStarted(game.Kickoff_Time)) return false;
+  const status = String(game.Status ?? '').toLowerCase();
+  return status === 'live' || (game.AwayPoints !== undefined && game.AwayPoints > 0) || (game.HomePoints !== undefined && game.HomePoints > 0);
+};
+
+const hasScoreData = (game: SlateGame) => {
+  if (isGameFinal(game)) return true;
+  if (!isGameStarted(game.Kickoff_Time)) return false;
+  return (
+    isGameLive(game) ||
+    (game.AwayPoints !== undefined && game.AwayPoints > 0) ||
+    (game.HomePoints !== undefined && game.HomePoints > 0)
+  );
+};
 
 const getPickCoverOutcome = (game: SlateGame, selectedTeam: string): 'correct' | 'incorrect' | 'push' | null => {
   if (!game || !selectedTeam) return null;
@@ -91,13 +109,6 @@ const isPastSaturdayNoonET = () => {
   const now = getEasternNow();
   const day = now.getDay();
   return (day === 6 && now.getHours() >= 12) || day === 0;
-};
-
-const isGameStarted = (kickoff: string | undefined) => {
-  if (!kickoff) return false;
-  const kickoffDate = new Date(kickoff);
-  if (Number.isNaN(kickoffDate.getTime())) return false;
-  return kickoffDate <= new Date();
 };
 
 const dedupePicks = (value: PickEntry[]) => {

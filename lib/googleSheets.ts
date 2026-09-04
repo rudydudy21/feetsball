@@ -912,14 +912,18 @@ export async function updateLiveScores() {
   }
 
   const apiGames = (await response.json()) as Array<Record<string, any>>;
-  const scoreMap: Record<string, { awayPoints: number; homePoints: number; completed: boolean }> = {};
+  const scoreMap: Record<string, { awayPoints: number; homePoints: number; completed: boolean; isStarted: boolean }> = {};
 
   apiGames.forEach((game) => {
     const gameId = game.id;
+    const kickoff = game.start_date || game.startDate;
+    const isStarted = kickoff ? new Date(kickoff) <= new Date() : false;
+
     scoreMap[gameId] = {
       awayPoints: Number(game.away_points ?? game.awayPoints ?? 0),
       homePoints: Number(game.home_points ?? game.homePoints ?? 0),
       completed: Boolean(game.completed),
+      isStarted,
     };
   });
 
@@ -931,9 +935,21 @@ export async function updateLiveScores() {
     const liveData = scoreMap[gameId];
     if (!liveData) continue;
 
+    const rowKickoff = asString(row.get('Kickoff_Time'));
+    const isStarted = liveData.isStarted || (rowKickoff ? new Date(rowKickoff) <= new Date() : false);
+
+    let status = 'Upcoming';
+    if (liveData.completed) {
+      status = 'Final';
+    } else if (isStarted) {
+      status = 'Live';
+    } else {
+      status = 'Upcoming';
+    }
+
     row.set('AwayPoints', liveData.awayPoints);
     row.set('HomePoints', liveData.homePoints);
-    row.set('Status', liveData.completed ? 'Final' : 'Live');
+    row.set('Status', status);
     await row.save();
   }
 
