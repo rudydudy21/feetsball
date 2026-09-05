@@ -70,44 +70,45 @@ export default function WeeklyLeaderboard() {
       style={{
         background: "#F1F5F9",
         minHeight: "100vh",
-        padding: "max(8px, env(safe-area-inset-top)) 8px max(14px, env(safe-area-inset-bottom))",
+        padding: "max(6px, env(safe-area-inset-top)) 6px max(12px, env(safe-area-inset-bottom))",
         color: "#0F172A",
-        fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif",
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
         WebkitFontSmoothing: "antialiased",
+        letterSpacing: "-0.01em",
       }}
     >
       <div style={{ maxWidth: "600px", margin: "0 auto", width: "100%", display: "flex", flexDirection: "column", gap: "8px" }}>
         
         {/* COMPACT BRAND HEADER */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 4px 0" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 2px 0" }}>
           <div>
-            <h1 style={{ fontSize: "24px", fontWeight: "900", letterSpacing: "-1px", margin: 0, lineHeight: 1 }}>
+            <h1 style={{ fontSize: "22px", fontWeight: "900", letterSpacing: "-0.8px", margin: 0, lineHeight: 1 }}>
               FEETSBALL
             </h1>
-            <span style={{ color: "#64748b", fontWeight: "800", fontSize: "10px", letterSpacing: "2px" }}>
+            <span style={{ color: "#64748b", fontWeight: "800", fontSize: "9.5px", letterSpacing: "1.5px" }}>
               2026 CHALLENGE
             </span>
           </div>
 
-          <nav style={{ display: 'flex', gap: '4px', background: 'rgba(15,23,42,0.06)', borderRadius: '999px', padding: '3px' }}>
-            <Link href="/" style={{ color: '#475569', textDecoration: 'none', borderRadius: '999px', padding: '6px 10px', fontSize: '11px', fontWeight: '800' }}>PICKS</Link>
-            <Link href="/leaderboard/weekly" style={{ color: '#0F172A', textDecoration: 'none', background: '#FFFFFF', borderRadius: '999px', padding: '6px 12px', fontSize: '11px', fontWeight: '800', boxShadow: '0 1px 2px rgba(15,23,42,0.08)' }}>WEEKLY</Link>
-            <Link href="/leaderboard/season" style={{ color: '#475569', textDecoration: 'none', borderRadius: '999px', padding: '6px 10px', fontSize: '11px', fontWeight: '800' }}>SEASON</Link>
+          <nav style={{ display: 'flex', gap: '3px', background: 'rgba(15,23,42,0.06)', borderRadius: '999px', padding: '2px' }}>
+            <Link href="/" style={{ color: '#475569', textDecoration: 'none', borderRadius: '999px', padding: '5px 8px', fontSize: '10.5px', fontWeight: '800' }}>PICKS</Link>
+            <Link href="/leaderboard/weekly" style={{ color: '#0F172A', textDecoration: 'none', background: '#FFFFFF', borderRadius: '999px', padding: '5px 10px', fontSize: '10.5px', fontWeight: '800', boxShadow: '0 1px 2px rgba(15,23,42,0.08)' }}>WEEKLY</Link>
+            <Link href="/leaderboard/season" style={{ color: '#475569', textDecoration: 'none', borderRadius: '999px', padding: '5px 8px', fontSize: '10.5px', fontWeight: '800' }}>SEASON</Link>
           </nav>
         </div>
 
         {/* SECTION HEADER & WEEK SELECTOR */}
-        <div style={{ padding: "4px 4px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: "12px", fontWeight: "900", color: "#64748b", letterSpacing: "1px", textTransform: "uppercase" }}>
+        <div style={{ padding: "2px 2px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: "11px", fontWeight: "900", color: "#64748b", letterSpacing: "0.5px", textTransform: "uppercase" }}>
               Weekly Recap
             </span>
             {!loading && !picksHidden && data.length > 0 && (
               <span style={{
-                fontSize: '10px',
+                fontSize: '9.5px',
                 fontWeight: '800',
-                padding: '2px 8px',
-                borderRadius: '6px',
+                padding: '2px 6px',
+                borderRadius: '5px',
                 backgroundColor: isArchived ? '#DCFCE7' : '#FEF3C7',
                 color: isArchived ? '#166534' : '#D97706',
               }}>
@@ -120,11 +121,11 @@ export default function WeeklyLeaderboard() {
             value={week}
             onChange={(e) => setWeek(e.target.value)}
             style={{
-              padding: '6px 10px',
-              borderRadius: '10px',
+              padding: '5px 8px',
+              borderRadius: '8px',
               border: '1px solid #CBD5E1',
               fontWeight: '800',
-              fontSize: '12px',
+              fontSize: '11px',
               backgroundColor: '#FFFFFF',
               color: '#0F172A',
               outline: 'none',
@@ -140,35 +141,35 @@ export default function WeeklyLeaderboard() {
 
         {/* TABLE CARD */}
         {loading ? (
-          <div style={{ padding: "30px", textAlign: "center", color: "#64748b", fontWeight: "700", fontSize: "14px" }}>
+          <div style={{ padding: "24px", textAlign: "center", color: "#64748b", fontWeight: "700", fontSize: "13px" }}>
             Loading Week {week} results...
           </div>
         ) : picksHidden ? (
           <div style={{
             background: "#FFFFFF",
-            borderRadius: "16px",
-            padding: "36px 20px",
+            borderRadius: "14px",
+            padding: "32px 16px",
             textAlign: "center",
             border: "1px solid #E2E8F0",
             boxShadow: "0 2px 4px rgba(15, 23, 42, 0.04)",
           }}>
-            <div style={{ fontSize: "32px", marginBottom: "8px" }}>🔒</div>
-            <div style={{ fontSize: "15px", fontWeight: "900", color: "#0F172A", marginBottom: "4px" }}>
+            <div style={{ fontSize: "28px", marginBottom: "6px" }}>🔒</div>
+            <div style={{ fontSize: "14px", fontWeight: "900", color: "#0F172A", marginBottom: "4px" }}>
               Picks Locked & Hidden
             </div>
-            <div style={{ fontSize: "13px", fontWeight: "600", color: "#64748B", maxWidth: "340px", margin: "0 auto" }}>
+            <div style={{ fontSize: "12px", fontWeight: "600", color: "#64748B", maxWidth: "300px", margin: "0 auto" }}>
               Everyone&apos;s picks for Week {week} will be revealed after 12:00 PM ET on Saturday.
             </div>
           </div>
         ) : data.length === 0 ? (
           <div style={{
             background: "#FFFFFF",
-            borderRadius: "16px",
-            padding: "24px 16px",
+            borderRadius: "14px",
+            padding: "20px 14px",
             textAlign: "center",
             color: "#64748b",
             fontWeight: "700",
-            fontSize: "13px",
+            fontSize: "12px",
             border: "1px solid #E2E8F0",
             boxShadow: "0 2px 4px rgba(15, 23, 42, 0.04)",
           }}>
@@ -178,77 +179,89 @@ export default function WeeklyLeaderboard() {
           <div style={{
             overflowX: 'auto',
             backgroundColor: '#FFFFFF',
-            borderRadius: '16px',
+            borderRadius: '14px',
             boxShadow: '0 2px 4px rgba(15, 23, 42, 0.04)',
             border: '1px solid #E2E8F0',
             WebkitOverflowScrolling: 'touch',
           }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px', minWidth: '420px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px', minWidth: '340px' }}>
               <thead>
                 <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-                  <th style={{ padding: '8px 10px', fontSize: '10px', fontWeight: '900', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748B', position: 'sticky', left: 0, backgroundColor: '#F8FAFC', zIndex: 2 }}>
+                  <th style={{ padding: '7px 6px 7px 8px', fontSize: '9.5px', fontWeight: '900', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#64748B', position: 'sticky', left: 0, backgroundColor: '#F8FAFC', zIndex: 2 }}>
                     # &nbsp; User
                   </th>
+                  <th style={{ padding: '7px 4px', textAlign: 'center', fontSize: '9.5px', fontWeight: '900', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#64748B' }}>
+                    Pts
+                  </th>
                   {[5, 4, 3, 2, 1].map((num) => (
-                    <th key={num} style={{ padding: '8px 4px', textAlign: 'center', fontSize: '10px', fontWeight: '900', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748B' }}>
+                    <th key={num} style={{ padding: '7px 2px', textAlign: 'center', fontSize: '9.5px', fontWeight: '900', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#64748B' }}>
                       {num}pt
                     </th>
                   ))}
-                  <th style={{ padding: '8px 10px', textAlign: 'right', fontSize: '10px', fontWeight: '900', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748B' }}>
-                    Total
-                  </th>
                 </tr>
               </thead>
               <tbody>
                 {data.map((user: WeeklyUser, idx: number) => (
                   <tr key={user?.username || idx} style={{ borderBottom: idx === data.length - 1 ? 'none' : '1px solid #F1F5F9' }}>
-                    <td style={{ padding: '8px 10px', position: 'sticky', left: 0, backgroundColor: '#FFFFFF', zIndex: 1, whiteSpace: 'nowrap' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <td style={{ padding: '6px 6px 6px 8px', position: 'sticky', left: 0, backgroundColor: '#FFFFFF', zIndex: 1, whiteSpace: 'nowrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <span style={{
-                          fontSize: '10px',
+                          fontSize: '9px',
                           fontWeight: '900',
                           color: ranks[idx] === 1 ? '#B45309' : ranks[idx] === 2 ? '#475569' : ranks[idx] === 3 ? '#92400E' : '#94A3B8',
                           backgroundColor: ranks[idx] === 1 ? '#FEF3C7' : ranks[idx] === 2 ? '#F1F5F9' : ranks[idx] === 3 ? '#FEF3C7' : 'transparent',
-                          padding: '2px 5px',
-                          borderRadius: '5px',
-                          minWidth: '22px',
+                          padding: '1px 4px',
+                          borderRadius: '4px',
+                          minWidth: '18px',
                           textAlign: 'center',
                           display: 'inline-block',
+                          fontVariantNumeric: 'tabular-nums',
                         }}>
                           #{ranks[idx]}
                         </span>
-                        <span style={{ fontWeight: '900', color: '#0F172A', fontSize: '13px' }}>
+                        <span style={{
+                          fontWeight: '800',
+                          color: '#0F172A',
+                          fontSize: '11.5px',
+                          maxWidth: '85px',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          display: 'inline-block',
+                          letterSpacing: '-0.2px',
+                        }}>
                           {user?.username || 'Unknown'}
                         </span>
                       </div>
+                    </td>
+                    <td style={{ padding: '6px 4px', textAlign: 'center', fontWeight: '900', color: '#2563EB', fontSize: '12px', fontVariantNumeric: 'tabular-nums' }}>
+                      {user?.total ?? 0}
                     </td>
                     {[5, 4, 3, 2, 1].map((num) => {
                       const p = user?.picks?.[num];
                       const outcomeStyle = getStyle(p?.outcome);
                       return (
-                        <td key={num} style={{ padding: '4px 3px' }}>
+                        <td key={num} style={{ padding: '3px 2px' }}>
                           <div style={{
                             ...outcomeStyle,
-                            padding: '4px 4px',
-                            borderRadius: '6px',
-                            fontSize: '10px',
-                            fontWeight: '900',
+                            padding: '3px 2px',
+                            borderRadius: '5px',
+                            fontSize: '9px',
+                            fontWeight: '800',
                             textAlign: 'center',
                             textTransform: 'uppercase',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
-                            maxWidth: '70px',
+                            maxWidth: '52px',
                             margin: '0 auto',
+                            letterSpacing: '-0.3px',
                           }}>
                             {p?.selection || '-'}
                           </div>
                         </td>
                       );
                     })}
-                    <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: '900', color: '#2563EB', fontSize: '13px' }}>
-                      {user?.total ?? 0}
-                    </td>
                   </tr>
                 ))}
               </tbody>
