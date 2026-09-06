@@ -62,6 +62,8 @@ export default function WeeklyLeaderboard() {
   const getStyle = (outcome?: string) => {
     if (outcome === 'correct') return { backgroundColor: '#DCFCE7', color: '#166534', border: '1px solid #BBF7D0' };
     if (outcome === 'incorrect') return { backgroundColor: '#FEE2E2', color: '#991B1B', border: '1px solid #FECACA' };
+    if (outcome === 'live' || outcome === 'in_progress') return { backgroundColor: '#FEF3C7', color: '#D97706', border: '1px solid #FDE68A' };
+    if (outcome === 'push') return { backgroundColor: '#F1F5F9', color: '#475569', border: '1px solid #E2E8F0' };
     return { backgroundColor: '#F8FAFC', color: '#64748B', border: '1px solid #E2E8F0' };
   };
 

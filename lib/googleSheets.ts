@@ -61,8 +61,27 @@ const getSpreadResultForPick = (game: { AwayTeam?: string; HomeTeam?: string; Sp
   return 'incorrect';
 };
 
+const isGameStarted = (kickoff: string | undefined) => {
+  if (!kickoff) return false;
+  const kickoffDate = new Date(kickoff);
+  if (Number.isNaN(kickoffDate.getTime())) return false;
+  return kickoffDate <= new Date();
+};
+
+const isGameFinal = (game: { Status?: string }) => asString(game?.Status).toLowerCase() === 'final';
+
+const isGameLive = (game: { Status?: string; Kickoff_Time?: string; AwayPoints?: number; HomePoints?: number }) => {
+  if (!game) return false;
+  if (isGameFinal(game)) return false;
+  if (!isGameStarted(game.Kickoff_Time)) return false;
+  const status = asString(game.Status).toLowerCase();
+  return status === 'live' || (game.AwayPoints !== undefined && Number(game.AwayPoints) > 0) || (game.HomePoints !== undefined && Number(game.HomePoints) > 0);
+};
+
 const normalizeTeamKey = (value: unknown) =>
   asString(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/&/g, 'and')
     .replace(/[^a-z0-9]+/g, ' ')
@@ -434,10 +453,11 @@ export async function getWeeklyResultsForWeek(week: string) {
     usersWithPicks.add(username);
 
     const game = slateByGameId.get(gameId);
-    const isFinal = game && asString(game.Status).toLowerCase() === 'final';
+    const isFinal = game && isGameFinal(game);
+    const isLive = game ? isGameLive(game) : false;
     const numericWager = Number.isFinite(wager) ? Math.max(1, Math.round(wager)) : 1;
 
-    let outcome: 'correct' | 'incorrect' | 'push' | 'pending' = 'pending';
+    let outcome: 'correct' | 'incorrect' | 'push' | 'live' | 'pending' = 'pending';
     let delta = 0;
 
     if (isFinal && game) {
@@ -452,6 +472,8 @@ export async function getWeeklyResultsForWeek(week: string) {
         outcome = 'incorrect';
         delta = -numericWager;
       }
+    } else if (isLive) {
+      outcome = 'live';
     }
 
     if (!byUser.has(username)) {
@@ -895,62 +917,167 @@ export async function archiveCurrentWeek() {
   return archiveRows.length;
 }
 
-export async function updateLiveScores() {
-  const settingsSheet = await getSheetByTitle('Settings');
-  const year = Number(await getSettingsValue('B4')) || CONFIG.YEAR || new Date().getFullYear();
-  const week = await getCurrentWeek();
+interface EspnCompetitor {
+  homeAway: 'home' | 'away';
+  score?: string | number;
+  winner?: boolean;
+  team?: {
+    id?: string;
+    location?: string;
+    displayName?: string;
+    shortDisplayName?: string;
+    name?: string;
+    abbreviation?: string;
+  };
+}
 
-  const url = `https://api.collegefootballdata.com/games?year=${year}&week=${week}&seasonType=regular`;
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${CONFIG.CFBD_KEY}`,
-    },
-  });
+interface EspnEvent {
+  id: string;
+  name?: string;
+  date?: string;
+  competitions?: Array<{
+    competitors?: EspnCompetitor[];
+  }>;
+  status?: {
+    type?: {
+      state?: string;
+      completed?: boolean;
+      detail?: string;
+      shortDetail?: string;
+    };
+  };
+}
 
-  if (!response.ok) {
-    throw new Error(`CFBD scores request failed: ${response.status} ${response.statusText}`);
+function matchEspnGame(awayTeam: string, homeTeam: string, events: EspnEvent[]) {
+  for (const event of events) {
+    const competition = event.competitions?.[0];
+    if (!competition?.competitors) continue;
+
+    const homeComp = competition.competitors.find((c) => c.homeAway === 'home');
+    const awayComp = competition.competitors.find((c) => c.homeAway === 'away');
+    if (!homeComp || !awayComp) continue;
+
+    const hNames = [
+      homeComp.team?.displayName,
+      homeComp.team?.location,
+      homeComp.team?.shortDisplayName,
+      homeComp.team?.name,
+    ].filter(Boolean) as string[];
+
+    const aNames = [
+      awayComp.team?.displayName,
+      awayComp.team?.location,
+      awayComp.team?.shortDisplayName,
+      awayComp.team?.name,
+    ].filter(Boolean) as string[];
+
+    const homeMatches = hNames.some((n) => isTeamMatch(homeTeam, n));
+    const awayMatches = aNames.some((n) => isTeamMatch(awayTeam, n));
+
+    if (homeMatches && awayMatches) {
+      return {
+        event,
+        homeScore: Number(homeComp.score ?? 0),
+        awayScore: Number(awayComp.score ?? 0),
+        completed: Boolean(event.status?.type?.completed || event.status?.type?.state === 'post'),
+        state: event.status?.type?.state || 'pre',
+      };
+    }
   }
 
-  const apiGames = (await response.json()) as Array<Record<string, any>>;
-  const scoreMap: Record<string, { awayPoints: number; homePoints: number; completed: boolean; isStarted: boolean }> = {};
+  return null;
+}
 
-  apiGames.forEach((game) => {
-    const gameId = game.id;
-    const kickoff = game.start_date || game.startDate;
-    const isStarted = kickoff ? new Date(kickoff) <= new Date() : false;
-
-    scoreMap[gameId] = {
-      awayPoints: Number(game.away_points ?? game.awayPoints ?? 0),
-      homePoints: Number(game.home_points ?? game.homePoints ?? 0),
-      completed: Boolean(game.completed),
-      isStarted,
-    };
-  });
-
+export async function updateLiveScores() {
   const sheet = await getSheetByTitle('Weekly_Slate');
   const rows = await sheet.getRows();
+  if (rows.length === 0) return 0;
+
+  // 1. Fetch live scoreboard from ESPN public API (in-game scores + quarters)
+  let espnEvents: EspnEvent[] = [];
+  try {
+    const espnRes = await fetch(
+      'https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=80&limit=300',
+      { cache: 'no-store' }
+    );
+    if (espnRes.ok) {
+      const espnData = (await espnRes.json()) as { events?: EspnEvent[] };
+      espnEvents = Array.isArray(espnData.events) ? espnData.events : [];
+    }
+  } catch (err) {
+    console.warn('ESPN scoreboard request failed, falling back to CFBD:', err);
+  }
+
+  // 2. Fetch CFBD scores as secondary/fallback data source
+  const cfbdMap: Record<string, { awayPoints: number; homePoints: number; completed: boolean; isStarted: boolean }> = {};
+  if (CONFIG.CFBD_KEY) {
+    try {
+      const year = Number(await getSettingsValue('B4')) || CONFIG.YEAR || new Date().getFullYear();
+      const week = await getCurrentWeek();
+      const url = `https://api.collegefootballdata.com/games?year=${year}&week=${week}&seasonType=regular`;
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${CONFIG.CFBD_KEY}`,
+        },
+        cache: 'no-store',
+      });
+      if (response.ok) {
+        const apiGames = (await response.json()) as Array<Record<string, any>>;
+        apiGames.forEach((game) => {
+          const gameId = String(game.id);
+          const kickoff = game.start_date || game.startDate;
+          const isStarted = kickoff ? new Date(kickoff) <= new Date() : false;
+          cfbdMap[gameId] = {
+            awayPoints: Number(game.away_points ?? game.awayPoints ?? 0),
+            homePoints: Number(game.home_points ?? game.homePoints ?? 0),
+            completed: Boolean(game.completed),
+            isStarted,
+          };
+        });
+      }
+    } catch (err) {
+      console.warn('CFBD score request failed:', err);
+    }
+  }
 
   for (const row of rows) {
     const gameId = asString(row.get('GameID'));
-    const liveData = scoreMap[gameId];
-    if (!liveData) continue;
-
+    const awayTeam = asString(row.get('AwayTeam'));
+    const homeTeam = asString(row.get('HomeTeam'));
     const rowKickoff = asString(row.get('Kickoff_Time'));
-    const isStarted = liveData.isStarted || (rowKickoff ? new Date(rowKickoff) <= new Date() : false);
+    const kickoffDate = rowKickoff ? new Date(rowKickoff) : null;
+    const isKickoffStarted = kickoffDate && !Number.isNaN(kickoffDate.getTime()) ? kickoffDate <= new Date() : false;
 
-    let status = 'Upcoming';
-    if (liveData.completed) {
-      status = 'Final';
-    } else if (isStarted) {
-      status = 'Live';
-    } else {
-      status = 'Upcoming';
+    // Primary: Match against ESPN live scoreboard
+    const espnMatch = matchEspnGame(awayTeam, homeTeam, espnEvents);
+
+    if (espnMatch) {
+      const completed = espnMatch.completed;
+      const isLive = espnMatch.state === 'in' || (!completed && (isKickoffStarted || espnMatch.awayScore > 0 || espnMatch.homeScore > 0));
+      const status = completed ? 'Final' : isLive ? 'Live' : 'Upcoming';
+
+      row.set('AwayPoints', espnMatch.awayScore);
+      row.set('HomePoints', espnMatch.homeScore);
+      row.set('Status', status);
+      await row.save();
+    } else if (cfbdMap[gameId]) {
+      // Fallback: Use CFBD score data if not matched on ESPN
+      const liveData = cfbdMap[gameId];
+      const isStarted = liveData.isStarted || isKickoffStarted;
+      let status = 'Upcoming';
+      if (liveData.completed) {
+        status = 'Final';
+      } else if (isStarted) {
+        status = 'Live';
+      } else {
+        status = 'Upcoming';
+      }
+
+      row.set('AwayPoints', liveData.awayPoints);
+      row.set('HomePoints', liveData.homePoints);
+      row.set('Status', status);
+      await row.save();
     }
-
-    row.set('AwayPoints', liveData.awayPoints);
-    row.set('HomePoints', liveData.homePoints);
-    row.set('Status', status);
-    await row.save();
   }
 
   return rows.length;

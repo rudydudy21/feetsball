@@ -78,7 +78,7 @@ const hasScoreData = (game: SlateGame) => {
 
 const getPickCoverOutcome = (game: SlateGame, selectedTeam: string): 'correct' | 'incorrect' | 'push' | null => {
   if (!game || !selectedTeam) return null;
-  if (!isGameFinal(game) && !isGameLive(game) && !hasScoreData(game)) return null;
+  if (!isGameFinal(game)) return null;
 
   const awayKey = normalizeTeamName(game.AwayTeam);
   const homeKey = normalizeTeamName(game.HomeTeam);
@@ -578,15 +578,67 @@ export default function Home() {
 
               const pickCoverOutcome = myPick ? getPickCoverOutcome(game, myPick.team) : null;
 
+              // Card tint styles for picked games based on win / loss / live status
+              const getCardTintStyle = () => {
+                if (!myPick) {
+                  return {
+                    background: "#FFFFFF",
+                    border: "1px solid #E2E8F0",
+                    boxShadow: "0 2px 4px rgba(15, 23, 42, 0.04)",
+                  };
+                }
+
+                if (pickCoverOutcome === 'correct') {
+                  return {
+                    background: "#F0FDF4",
+                    border: "1.5px solid #86EFAC",
+                    boxShadow: "0 2px 6px rgba(22, 101, 52, 0.08)",
+                  };
+                }
+
+                if (pickCoverOutcome === 'incorrect') {
+                  return {
+                    background: "#FEF2F2",
+                    border: "1.5px solid #FECACA",
+                    boxShadow: "0 2px 6px rgba(153, 27, 27, 0.08)",
+                  };
+                }
+
+                if (pickCoverOutcome === 'push') {
+                  return {
+                    background: "#F8FAFC",
+                    border: "1.5px solid #CBD5E1",
+                    boxShadow: "0 2px 4px rgba(15, 23, 42, 0.04)",
+                  };
+                }
+
+                if (isGameLive(game)) {
+                  return {
+                    background: "#FFFBEB",
+                    border: "1.5px solid #FDE68A",
+                    boxShadow: "0 2px 6px rgba(217, 119, 6, 0.08)",
+                  };
+                }
+
+                return {
+                  background: "#FFFFFF",
+                  border: "1.5px solid #2563EB",
+                  boxShadow: "0 2px 4px rgba(15, 23, 42, 0.04)",
+                };
+              };
+
+              const cardTint = getCardTintStyle();
+              const isCardTinted = Boolean(myPick && (pickCoverOutcome || isGameLive(game)));
+              const unselectedRowBg = isCardTinted ? "#FFFFFF" : "#F8FAFC";
+              const unselectedRowBorder = isCardTinted ? "1px solid rgba(0, 0, 0, 0.06)" : "none";
+
               return (
                 <div
                   key={game.GameID}
                   style={{
-                    background: "#FFFFFF",
+                    ...cardTint,
                     borderRadius: "16px",
                     padding: "8px 10px",
-                    boxShadow: "0 2px 4px rgba(15, 23, 42, 0.04)",
-                    border: myPick ? "1.5px solid #2563EB" : "1px solid #E2E8F0",
                     opacity: gameLocked ? 0.88 : 1,
                   }}
                 >
@@ -633,9 +685,9 @@ export default function Home() {
                           color: pickCoverOutcome === 'correct' ? '#166534' : pickCoverOutcome === 'incorrect' ? '#991B1B' : '#475569',
                         }}>
                           {pickCoverOutcome === 'correct'
-                            ? `${isGameFinal(game) ? '✓ WON' : '✓ COVERING'} (+${myPick.wager || 0})`
+                            ? `✓ WON (+${myPick.wager || 0})`
                             : pickCoverOutcome === 'incorrect'
-                              ? `${isGameFinal(game) ? '✗ LOST' : '✗ NOT COVERING'} (-${myPick.wager || 0})`
+                              ? `✗ LOST (-${myPick.wager || 0})`
                               : 'PUSH (0)'}
                         </span>
                       )}
@@ -658,9 +710,9 @@ export default function Home() {
                         width: "100%",
                         padding: "6px 8px",
                         borderRadius: "10px",
-                        border: "none",
+                        border: isAwaySelected ? "none" : unselectedRowBorder,
                         cursor: gameLocked ? "default" : "pointer",
-                        background: isAwaySelected ? "#2563EB" : "#F8FAFC",
+                        background: isAwaySelected ? "#2563EB" : unselectedRowBg,
                         color: isAwaySelected ? "#FFFFFF" : "#0F172A",
                         display: "flex",
                         alignItems: "center",
@@ -732,9 +784,9 @@ export default function Home() {
                         width: "100%",
                         padding: "6px 8px",
                         borderRadius: "10px",
-                        border: "none",
+                        border: isHomeSelected ? "none" : unselectedRowBorder,
                         cursor: gameLocked ? "default" : "pointer",
-                        background: isHomeSelected ? "#2563EB" : "#F8FAFC",
+                        background: isHomeSelected ? "#2563EB" : unselectedRowBg,
                         color: isHomeSelected ? "#FFFFFF" : "#0F172A",
                         display: "flex",
                         alignItems: "center",
