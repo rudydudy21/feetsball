@@ -108,7 +108,7 @@ const getEasternNow = () => new Date(new Date().toLocaleString('en-US', { timeZo
 const isPastSaturdayNoonET = () => {
   const now = getEasternNow();
   const day = now.getDay();
-  return (day === 6 && now.getHours() >= 12) || day === 0;
+  return (day === 6 && now.getHours() >= 12) || day === 0 || day === 1;
 };
 
 const dedupePicks = (value: PickEntry[]) => {

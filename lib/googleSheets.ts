@@ -330,7 +330,7 @@ export const getEasternNow = () =>
 export const isPastSaturdayNoonET = () => {
   const now = getEasternNow();
   const day = now.getDay();
-  return (day === 6 && now.getHours() >= 12) || day === 0;
+  return (day === 6 && now.getHours() >= 12) || day === 0 || day === 1;
 };
 
 export async function getArchivedWeeks(): Promise<number[]> {
