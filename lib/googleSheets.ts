@@ -390,11 +390,19 @@ export async function getWeeklyResultsForWeek(week: string) {
   const weekNum = Number(week);
   const isBowlWeek = weekNum >= 12 && weekNum <= 14;
 
-  const currentWeek = await getCurrentWeek().catch(() => '1');
+  const [currentWeek, archivedWeeks, weeklySlate, archivedGames] = await Promise.all([
+    getCurrentWeek().catch(() => '1'),
+    getArchivedWeeks().catch(() => [] as number[]),
+    getWeeklySlate().catch(() => [] as Awaited<ReturnType<typeof getWeeklySlate>>),
+    getMasterArchiveGames().catch(() => [] as Awaited<ReturnType<typeof getMasterArchiveGames>>),
+  ]);
+
   const currentWeekNum = Number(currentWeek);
+  const isArchived = archivedWeeks.includes(weekNum);
 
   const isPastSatNoon = isPastSaturdayNoonET();
   const shouldHidePicks =
+    !isArchived &&
     Number.isFinite(currentWeekNum) &&
     (weekNum > currentWeekNum || (weekNum === currentWeekNum && !isPastSatNoon));
 
@@ -407,14 +415,6 @@ export async function getWeeklyResultsForWeek(week: string) {
       data: [],
     };
   }
-
-  const [weeklySlate, archivedGames, archivedWeeks] = await Promise.all([
-    getWeeklySlate().catch(() => [] as Awaited<ReturnType<typeof getWeeklySlate>>),
-    getMasterArchiveGames().catch(() => [] as Awaited<ReturnType<typeof getMasterArchiveGames>>),
-    getArchivedWeeks().catch(() => [] as number[]),
-  ]);
-
-  const isArchived = archivedWeeks.includes(weekNum);
 
   const slateByGameId = new Map<string, any>();
   // Archived games first
