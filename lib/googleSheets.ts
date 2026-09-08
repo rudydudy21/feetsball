@@ -914,7 +914,129 @@ export async function archiveCurrentWeek() {
     await archiveSheet.addRows(archiveRows);
   }
 
+  // Update & sync the Weekly_Winners ledger in Google Sheets
+  try {
+    await updateWeeklyWinnersSheet();
+  } catch (error) {
+    console.error('Failed to update Weekly_Winners sheet:', error);
+  }
+
   return archiveRows.length;
+}
+
+export async function updateWeeklyWinnersSheet(): Promise<number> {
+  await doc.loadInfo();
+  let winnersSheet = doc.sheetsByTitle['Weekly_Winners'];
+  if (!winnersSheet) {
+    winnersSheet = await doc.addSheet({
+      title: 'Weekly_Winners',
+      headerValues: ['Week', 'Winner', 'Winning_Points', 'Method', 'Tied_Participants', 'Archived_At'],
+    });
+  }
+
+  const seasonResults = await getSeasonResults();
+  const archivedWeeks = seasonResults.archivedWeeks || [];
+  const usersData = seasonResults.data || [];
+
+  if (archivedWeeks.length === 0 || usersData.length === 0) return 0;
+
+  const allScores: Array<{ username: string; week: number; points: number }> = usersData.flatMap((user) =>
+    Object.entries(user.weeks).map(([wk, pts]) => ({
+      username: user.username,
+      week: Number(wk),
+      points: pts,
+    }))
+  );
+
+  const resolveWinner = (
+    week: number,
+    tiedUsers: string[],
+    scores: Array<{ username: string; week: number; points: number }>,
+    maxWeek = 14
+  ): { winner: string; method: string } => {
+    if (tiedUsers.length === 1) {
+      return { winner: tiedUsers[0], method: week > 1 ? `Tiebreaker (W${week})` : 'Outright' };
+    }
+    if (week >= maxWeek) {
+      return { winner: tiedUsers.join(' & '), method: 'Split Pot' };
+    }
+    const nextWeek = week + 1;
+    if (!archivedWeeks.includes(nextWeek)) {
+      return { winner: tiedUsers.join(' & '), method: `Pending Tiebreaker (W${nextWeek})` };
+    }
+    const nextWeekScores = scores.filter((s) => s.week === nextWeek);
+    if (nextWeekScores.length === 0) {
+      return { winner: tiedUsers.join(' & '), method: `Pending Tiebreaker (W${nextWeek})` };
+    }
+    const performance = tiedUsers.map((user) => ({
+      username: user,
+      score: nextWeekScores.find((s) => s.username === user)?.points || 0,
+    }));
+    const topScore = Math.max(...performance.map((p) => p.score));
+    const stillTied = performance.filter((p) => p.score === topScore).map((p) => p.username);
+    return resolveWinner(nextWeek, stillTied, scores, maxWeek);
+  };
+
+  const existingRows = await winnersSheet.getRows().catch(() => []);
+  const rowsByWeek = new Map<string, any>();
+  for (const r of existingRows) {
+    const wk = asString(r.get('Week'));
+    if (wk) rowsByWeek.set(wk, r);
+  }
+
+  const easternTimestamp = new Date().toLocaleString('en-US', { timeZone: 'America/New_York' });
+
+  for (const w of archivedWeeks) {
+    const scoresForWeek = usersData.map((user) => ({
+      username: user.username,
+      points: user.weeks[w] ?? 0,
+    }));
+
+    if (scoresForWeek.length === 0) continue;
+
+    const maxScore = Math.max(...scoresForWeek.map((s) => s.points));
+    const leaders = scoresForWeek.filter((s) => s.points === maxScore).map((l) => l.username);
+
+    if (leaders.length === 0) continue;
+
+    let winner = '';
+    let method = '';
+    let tiedParticipants = '';
+
+    if (leaders.length === 1) {
+      winner = leaders[0];
+      method = 'Outright';
+      tiedParticipants = 'None';
+    } else {
+      tiedParticipants = leaders.join(', ');
+      const resolution = resolveWinner(w, leaders, allScores, 14);
+      winner = resolution.winner;
+      method = resolution.method;
+    }
+
+    const rowData = {
+      Week: String(w),
+      Winner: winner,
+      Winning_Points: maxScore,
+      Method: method,
+      Tied_Participants: tiedParticipants,
+      Archived_At: easternTimestamp,
+    };
+
+    const existingRow = rowsByWeek.get(String(w));
+    if (existingRow) {
+      existingRow.set('Winner', rowData.Winner);
+      existingRow.set('Winning_Points', rowData.Winning_Points);
+      existingRow.set('Method', rowData.Method);
+      existingRow.set('Tied_Participants', rowData.Tied_Participants);
+      existingRow.set('Archived_At', rowData.Archived_At);
+      await existingRow.save();
+    } else {
+      await winnersSheet.addRow(rowData);
+    }
+  }
+
+  return archivedWeeks.length;
 }
 
 interface EspnCompetitor {
