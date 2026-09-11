@@ -519,29 +519,32 @@ export async function getWeeklyResultsForWeek(weekParam?: string) {
     const username = asString(userRow.get('Username'));
     if (usersWithPicks.has(username)) continue; // Already processed
 
-    const rawBye = asString(userRow.get('ByeWeekUsed')).toUpperCase();
-    const missedCount = Number(userRow.get('Missed_Weeks_Count') || 0);
-    const byeWeekUsed = rawBye === 'TRUE' || missedCount > 0;
     let penalty = 0;
 
     if (isBowlWeek) {
       // Championship weeks (12-14): always -15, no bye
       penalty = -15;
-    } else if (!byeWeekUsed) {
-      // First missed week (non-championship): use bye week, 0 penalty
-      penalty = 0;
-      try {
-        if (userRow.get('ByeWeekUsed') !== undefined) userRow.set('ByeWeekUsed', 'TRUE');
-        if (userRow.get('Missed_Weeks_Count') !== undefined) userRow.set('Missed_Weeks_Count', 1);
-        await userRow.save();
-      } catch {}
     } else {
-      // Already used bye (non-championship): -5 penalty
-      penalty = -5;
-      try {
-        if (userRow.get('Missed_Weeks_Count') !== undefined) userRow.set('Missed_Weeks_Count', missedCount + 1);
-        await userRow.save();
-      } catch {}
+      // Check how many regular season weeks prior to this week (w < weekNum) the user missed
+      let priorMissedCount = 0;
+      for (let w = 1; w < weekNum; w++) {
+        if (w < 12) {
+          const userSubmittedForWeek = pickRows.some(
+            (r) => asString(r.get('Username')) === username && Number(r.get('Week')) === w,
+          );
+          if (!userSubmittedForWeek) {
+            priorMissedCount++;
+          }
+        }
+      }
+
+      if (priorMissedCount === 0) {
+        // First missed week for this user: bye week (0 penalty)
+        penalty = 0;
+      } else {
+        // Already missed a regular season week prior: -5 penalty
+        penalty = -5;
+      }
     }
 
     byUser.set(username, { username, picks: {}, total: penalty });
@@ -641,8 +644,10 @@ export async function getSeasonResults() {
     let missedCount = 0;
     let byeUsed = false;
 
-    // Check weeks 1 through currentWeek - 1 (or archived weeks)
-    const weeksToCheck = Math.max(...(archivedWeeks.length > 0 ? archivedWeeks : [0]), currentWeekNum - 1);
+    // Check completed/archived weeks plus current week if past Saturday noon
+    const isPastSatNoon = isPastSaturdayNoonET();
+    const passedCurrentWeek = isPastSatNoon ? currentWeekNum : currentWeekNum - 1;
+    const weeksToCheck = Math.max(...(archivedWeeks.length > 0 ? archivedWeeks : [0]), passedCurrentWeek);
     for (let w = 1; w <= weeksToCheck; w++) {
       if (userSubmittedWeeks.has(w)) continue; // User submitted for this week
 
