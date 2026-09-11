@@ -321,6 +321,17 @@ export async function submitUserPicks(
     });
   }
 
+  // Update "Picks In?" column in Users sheet if present
+  try {
+    const usersSheet = await getSheetByTitle('Users');
+    const userRows = await usersSheet.getRows();
+    const userRow = userRows.find((r) => normalizeUsername(r.get('Username')) === username);
+    if (userRow && userRow.get('Picks In?') !== undefined && asString(userRow.get('Picks In?')).toUpperCase() !== 'TRUE') {
+      userRow.set('Picks In?', 'TRUE');
+      await userRow.save().catch(() => {});
+    }
+  } catch {}
+
   return { success: true, week, submitted: picks.length };
 }
 
@@ -490,7 +501,9 @@ export async function getWeeklyResultsForWeek(week: string) {
     const username = asString(userRow.get('Username'));
     if (usersWithPicks.has(username)) continue; // Already processed
 
-    const byeWeekUsed = asString(userRow.get('ByeWeekUsed')).toUpperCase() === 'TRUE';
+    const rawBye = asString(userRow.get('ByeWeekUsed')).toUpperCase();
+    const missedCount = Number(userRow.get('Missed_Weeks_Count') || 0);
+    const byeWeekUsed = rawBye === 'TRUE' || missedCount > 0;
     let penalty = 0;
 
     if (isBowlWeek) {
@@ -499,12 +512,18 @@ export async function getWeeklyResultsForWeek(week: string) {
     } else if (!byeWeekUsed) {
       // First missed week (non-championship): use bye week, 0 penalty
       penalty = 0;
-      // Update user's ByeWeekUsed to TRUE
-      userRow.set('ByeWeekUsed', 'TRUE');
-      await userRow.save();
+      try {
+        if (userRow.get('ByeWeekUsed') !== undefined) userRow.set('ByeWeekUsed', 'TRUE');
+        if (userRow.get('Missed_Weeks_Count') !== undefined) userRow.set('Missed_Weeks_Count', 1);
+        await userRow.save();
+      } catch {}
     } else {
       // Already used bye (non-championship): -5 penalty
       penalty = -5;
+      try {
+        if (userRow.get('Missed_Weeks_Count') !== undefined) userRow.set('Missed_Weeks_Count', missedCount + 1);
+        await userRow.save();
+      } catch {}
     }
 
     byUser.set(username, { username, picks: {}, total: penalty });
@@ -597,32 +616,53 @@ export async function getSeasonResults() {
   // Apply bye-week and missed-week penalties for weeks that have passed
   for (const userRow of usersRows) {
     const username = asString(userRow.get('Username'));
-    const byeWeekUsed = asString(userRow.get('ByeWeekUsed')).toUpperCase() === 'TRUE';
     const userSubmittedWeeks = userWeeksSubmitted.get(username) || new Set();
     const entry = userTotals.get(username)!;
 
-    let byeWeekUsedThisSeason = byeWeekUsed;
+    let missedCount = 0;
+    let byeUsed = false;
 
-    // Check weeks 1 through currentWeek - 1 (completed weeks only)
-    for (let w = 1; w < currentWeekNum; w++) {
+    // Check weeks 1 through currentWeek - 1 (or archived weeks)
+    const weeksToCheck = Math.max(...(archivedWeeks.length > 0 ? archivedWeeks : [0]), currentWeekNum - 1);
+    for (let w = 1; w <= weeksToCheck; w++) {
       if (userSubmittedWeeks.has(w)) continue; // User submitted for this week
 
+      missedCount++;
       const isBowlWeek = w >= 12 && w <= 14;
 
       if (isBowlWeek) {
         // Championship weeks: always -15, no bye applies
         entry.weeks[w] = -15;
         entry.total += -15;
-      } else if (!byeWeekUsedThisSeason) {
+      } else if (!byeUsed) {
         // First missed non-championship week: use bye, 0 penalty
         entry.weeks[w] = 0;
-        byeWeekUsedThisSeason = true;
+        byeUsed = true;
       } else {
         // Already used bye: -5 penalty for non-championship weeks
         entry.weeks[w] = -5;
         entry.total += -5;
       }
     }
+
+    try {
+      let needsSave = false;
+      if (userRow.get('Total_Score') !== undefined && Number(userRow.get('Total_Score') || 0) !== entry.total) {
+        userRow.set('Total_Score', entry.total);
+        needsSave = true;
+      }
+      if (userRow.get('Missed_Weeks_Count') !== undefined && Number(userRow.get('Missed_Weeks_Count') || 0) !== missedCount) {
+        userRow.set('Missed_Weeks_Count', missedCount);
+        needsSave = true;
+      }
+      if (userRow.get('ByeWeekUsed') !== undefined && (asString(userRow.get('ByeWeekUsed')).toUpperCase() === 'TRUE') !== byeUsed) {
+        userRow.set('ByeWeekUsed', byeUsed ? 'TRUE' : 'FALSE');
+        needsSave = true;
+      }
+      if (needsSave) {
+        await userRow.save().catch(() => {});
+      }
+    } catch {}
   }
 
   const sortedData = Array.from(userTotals.values()).sort((a, b) => b.total - a.total);
@@ -690,13 +730,21 @@ export async function registerUser(user: { username: string; email: string; pin:
     return { success: false, error: 'Username already taken' };
   }
 
-  await usersSheet.addRow({
+  const newRowData: Record<string, string | number> = {
     Username: normalizedUsername,
     Email: user.email.trim().toLowerCase(),
     PIN: normalizePin(user.pin),
-    Created: new Date().toLocaleString(),
-    ByeWeekUsed: 'FALSE',
-  });
+  };
+
+  const headers = usersSheet.headerValues || [];
+  if (headers.includes('Total_Score')) newRowData['Total_Score'] = 0;
+  if (headers.includes('Missed_Weeks_Count')) newRowData['Missed_Weeks_Count'] = 0;
+  if (headers.includes('Paid_Status')) newRowData['Paid_Status'] = 'Unpaid';
+  if (headers.includes('Picks In?')) newRowData['Picks In?'] = 'FALSE';
+  if (headers.includes('ByeWeekUsed')) newRowData['ByeWeekUsed'] = 'FALSE';
+  if (headers.includes('Created')) newRowData['Created'] = new Date().toLocaleString();
+
+  await usersSheet.addRow(newRowData);
 
   return { success: true };
 }
@@ -919,6 +967,20 @@ export async function archiveCurrentWeek() {
     await updateWeeklyWinnersSheet();
   } catch (error) {
     console.error('Failed to update Weekly_Winners sheet:', error);
+  }
+
+  // Reset "Picks In?" column in Users sheet for the next week
+  try {
+    const usersSheet = await getSheetByTitle('Users');
+    const userRows = await usersSheet.getRows();
+    for (const uRow of userRows) {
+      if (uRow.get('Picks In?') !== undefined && asString(uRow.get('Picks In?')).toUpperCase() !== 'FALSE') {
+        uRow.set('Picks In?', 'FALSE');
+        await uRow.save().catch(() => {});
+      }
+    }
+  } catch (error) {
+    console.warn('Could not reset Picks In? on Users sheet:', error);
   }
 
   return archiveRows.length;
