@@ -397,10 +397,7 @@ export async function getMasterArchiveGames(): Promise<Array<{
   }
 }
 
-export async function getWeeklyResultsForWeek(week: string) {
-  const weekNum = Number(week);
-  const isBowlWeek = weekNum >= 12 && weekNum <= 14;
-
+export async function getWeeklyResultsForWeek(weekParam?: string) {
   const [currentWeek, archivedWeeks, weeklySlate, archivedGames] = await Promise.all([
     getCurrentWeek().catch(() => '1'),
     getArchivedWeeks().catch(() => [] as number[]),
@@ -408,10 +405,30 @@ export async function getWeeklyResultsForWeek(week: string) {
     getMasterArchiveGames().catch(() => [] as Awaited<ReturnType<typeof getMasterArchiveGames>>),
   ]);
 
-  const currentWeekNum = Number(currentWeek);
+  const currentWeekNum = Number(currentWeek) || 1;
+  const isPastSatNoon = isPastSaturdayNoonET();
+  const isCurrentWeekArchived = archivedWeeks.includes(currentWeekNum);
+  const isCurrentWeekUnlocked = isCurrentWeekArchived || isPastSatNoon;
+
+  // If no week specified, default to currentWeek if unlocked, or latest available week
+  let targetWeek = weekParam ? String(weekParam).trim() : '';
+  if (!targetWeek) {
+    if (isCurrentWeekUnlocked) {
+      targetWeek = String(currentWeekNum);
+    } else if (archivedWeeks.length > 0) {
+      targetWeek = String(Math.max(...archivedWeeks));
+    } else if (currentWeekNum > 1) {
+      targetWeek = String(currentWeekNum - 1);
+    } else {
+      targetWeek = String(currentWeekNum);
+    }
+  }
+
+  const week = targetWeek;
+  const weekNum = Number(week);
+  const isBowlWeek = weekNum >= 12 && weekNum <= 14;
   const isArchived = archivedWeeks.includes(weekNum);
 
-  const isPastSatNoon = isPastSaturdayNoonET();
   const shouldHidePicks =
     !isArchived &&
     Number.isFinite(currentWeekNum) &&
@@ -421,7 +438,8 @@ export async function getWeeklyResultsForWeek(week: string) {
     return {
       picksHidden: true,
       week,
-      currentWeek,
+      currentWeek: String(currentWeekNum),
+      isCurrentWeekUnlocked,
       isArchived: false,
       data: [],
     };
@@ -535,7 +553,8 @@ export async function getWeeklyResultsForWeek(week: string) {
     data: sortedData,
     isArchived,
     week,
-    currentWeek,
+    currentWeek: String(currentWeekNum),
+    isCurrentWeekUnlocked,
   };
 }
 

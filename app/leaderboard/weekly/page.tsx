@@ -1,6 +1,6 @@
 "use client";
 import Link from 'next/link';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 
 type WeeklyUser = {
   username?: string;
@@ -15,13 +15,21 @@ export default function WeeklyLeaderboard() {
   const [picksHidden, setPicksHidden] = useState(false);
   const [isArchived, setIsArchived] = useState(false);
 
-  useEffect(() => {
+  const fetchWeekData = useCallback((weekToFetch?: string) => {
     setLoading(true);
     setPicksHidden(false);
     setIsArchived(false);
-    fetch(`/api/get-weekly-results?week=${week}`)
+
+    const url = weekToFetch
+      ? `/api/get-weekly-results?week=${encodeURIComponent(weekToFetch)}`
+      : `/api/get-weekly-results`;
+
+    fetch(url)
       .then((res) => res.json())
       .then((resData) => {
+        if (resData && typeof resData === 'object' && resData.week) {
+          setWeek(String(resData.week));
+        }
         if (resData && !Array.isArray(resData) && resData.picksHidden) {
           setPicksHidden(true);
           setData([]);
@@ -47,7 +55,16 @@ export default function WeeklyLeaderboard() {
         setIsArchived(false);
         setLoading(false);
       });
-  }, [week]);
+  }, []);
+
+  useEffect(() => {
+    fetchWeekData();
+  }, [fetchWeekData]);
+
+  const handleWeekChange = (newWeek: string) => {
+    setWeek(newWeek);
+    fetchWeekData(newWeek);
+  };
 
   const ranks = useMemo(() => {
     let currentRank = 1;
@@ -121,7 +138,7 @@ export default function WeeklyLeaderboard() {
 
           <select
             value={week}
-            onChange={(e) => setWeek(e.target.value)}
+            onChange={(e) => handleWeekChange(e.target.value)}
             style={{
               padding: '5px 8px',
               borderRadius: '8px',

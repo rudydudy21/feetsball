@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const week = searchParams.get('week') || '1';
+    const week = searchParams.get('week')?.trim() || undefined;
     const data = await getWeeklyResultsForWeek(week);
     return NextResponse.json(data);
   } catch (error: unknown) {
