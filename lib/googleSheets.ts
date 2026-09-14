@@ -321,17 +321,6 @@ export async function submitUserPicks(
     });
   }
 
-  // Update "Picks In?" column in Users sheet if present
-  try {
-    const usersSheet = await getSheetByTitle('Users');
-    const userRows = await usersSheet.getRows();
-    const userRow = userRows.find((r) => normalizeUsername(r.get('Username')) === username);
-    if (userRow && userRow.get('Picks In?') !== undefined && asString(userRow.get('Picks In?')).toUpperCase() !== 'TRUE') {
-      userRow.set('Picks In?', 'TRUE');
-      await userRow.save().catch(() => {});
-    }
-  } catch {}
-
   return { success: true, week, submitted: picks.length };
 }
 
@@ -668,25 +657,6 @@ export async function getSeasonResults() {
         entry.total += -5;
       }
     }
-
-    try {
-      let needsSave = false;
-      if (userRow.get('Total_Score') !== undefined && Number(userRow.get('Total_Score') || 0) !== entry.total) {
-        userRow.set('Total_Score', entry.total);
-        needsSave = true;
-      }
-      if (userRow.get('Missed_Weeks_Count') !== undefined && Number(userRow.get('Missed_Weeks_Count') || 0) !== missedCount) {
-        userRow.set('Missed_Weeks_Count', missedCount);
-        needsSave = true;
-      }
-      if (userRow.get('ByeWeekUsed') !== undefined && (asString(userRow.get('ByeWeekUsed')).toUpperCase() === 'TRUE') !== byeUsed) {
-        userRow.set('ByeWeekUsed', byeUsed ? 'TRUE' : 'FALSE');
-        needsSave = true;
-      }
-      if (needsSave) {
-        await userRow.save().catch(() => {});
-      }
-    } catch {}
   }
 
   const sortedData = Array.from(userTotals.values()).sort((a, b) => b.total - a.total);
@@ -761,11 +731,6 @@ export async function registerUser(user: { username: string; email: string; pin:
   };
 
   const headers = usersSheet.headerValues || [];
-  if (headers.includes('Total_Score')) newRowData['Total_Score'] = 0;
-  if (headers.includes('Missed_Weeks_Count')) newRowData['Missed_Weeks_Count'] = 0;
-  if (headers.includes('Paid_Status')) newRowData['Paid_Status'] = 'Unpaid';
-  if (headers.includes('Picks In?')) newRowData['Picks In?'] = 'FALSE';
-  if (headers.includes('ByeWeekUsed')) newRowData['ByeWeekUsed'] = 'FALSE';
   if (headers.includes('Created')) newRowData['Created'] = new Date().toLocaleString();
 
   await usersSheet.addRow(newRowData);
@@ -991,20 +956,6 @@ export async function archiveCurrentWeek() {
     await updateWeeklyWinnersSheet();
   } catch (error) {
     console.error('Failed to update Weekly_Winners sheet:', error);
-  }
-
-  // Reset "Picks In?" column in Users sheet for the next week
-  try {
-    const usersSheet = await getSheetByTitle('Users');
-    const userRows = await usersSheet.getRows();
-    for (const uRow of userRows) {
-      if (uRow.get('Picks In?') !== undefined && asString(uRow.get('Picks In?')).toUpperCase() !== 'FALSE') {
-        uRow.set('Picks In?', 'FALSE');
-        await uRow.save().catch(() => {});
-      }
-    }
-  } catch (error) {
-    console.warn('Could not reset Picks In? on Users sheet:', error);
   }
 
   return archiveRows.length;
