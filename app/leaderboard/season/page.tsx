@@ -10,33 +10,43 @@ interface UserData {
 
 type ScoreEntry = { username: string; week: number; points: number };
 
-const resolveWeeklyWinner = (week: number, tiedUsers: string[], allScores: ScoreEntry[], maxWeek: number): { winner: string; method: string } => {
+const resolveWeeklyWinner = (
+  initialWeek: number,
+  currentWeek: number,
+  tiedUsers: string[],
+  allScores: ScoreEntry[],
+  archivedWeeks: number[],
+  maxWeek = 14
+): { winner: string; method: string } => {
   if (tiedUsers.length === 1) {
-    return { winner: tiedUsers[0], method: week > 1 ? `Tiebreaker (W${week})` : 'Outright' };
+    return {
+      winner: tiedUsers[0],
+      method: currentWeek > initialWeek ? `Tiebreaker (W${currentWeek})` : 'Outright',
+    };
   }
 
-  if (week >= maxWeek) {
+  if (currentWeek >= maxWeek) {
     return { winner: tiedUsers.join(' & '), method: 'Split Pot' };
   }
 
-  const nextWeek = week + 1;
-  const nextWeekScores = allScores.filter(s => s.week === nextWeek);
+  const nextWeek = currentWeek + 1;
+  const nextWeekScores = allScores.filter((s) => s.week === nextWeek);
 
-  if (nextWeekScores.length === 0) {
-    return { winner: tiedUsers.join(' & '), method: 'Pending Tiebreaker' };
+  if (!archivedWeeks.includes(nextWeek) || nextWeekScores.length === 0) {
+    return { winner: tiedUsers.join(' & '), method: `Pending Tiebreaker (W${nextWeek})` };
   }
 
-  const performance = tiedUsers.map(user => ({
+  const performance = tiedUsers.map((user) => ({
     username: user,
-    score: nextWeekScores.find(s => s.username === user)?.points || 0
+    score: nextWeekScores.find((s) => s.username === user)?.points ?? 0,
   }));
 
-  const topScore = Math.max(...performance.map(p => p.score));
+  const topScore = Math.max(...performance.map((p) => p.score));
   const stillTied = performance
-    .filter(p => p.score === topScore)
-    .map(p => p.username);
+    .filter((p) => p.score === topScore)
+    .map((p) => p.username);
 
-  return resolveWeeklyWinner(nextWeek, stillTied, allScores, maxWeek);
+  return resolveWeeklyWinner(initialWeek, nextWeek, stillTied, allScores, archivedWeeks, maxWeek);
 };
 
 export default function SeasonLeaderboard() {
@@ -82,11 +92,11 @@ export default function SeasonLeaderboard() {
   const weeklyWinners = useMemo(() => {
     if (!data.length) return [];
 
-    return weeks.map(w => {
+    return weeks.map((w) => {
       const isArchived = archivedWeeks.includes(w);
 
       if (!isArchived) {
-        const hasScores = data.some(user => (user.weeks[w] || 0) !== 0);
+        const hasScores = data.some((user) => (user.weeks[w] || 0) !== 0);
         if (hasScores) {
           return {
             week: w,
@@ -101,32 +111,47 @@ export default function SeasonLeaderboard() {
         };
       }
 
-      const scoresForWeek = data.map(user => ({
+      const scoresForWeek = data.map((user) => ({
         username: user.username,
-        points: user.weeks[w] || 0
+        points: user.weeks[w] || 0,
       }));
 
-      const maxScore = Math.max(...scoresForWeek.map(s => s.points));
-      const leaders = scoresForWeek.filter(s => s.points === maxScore).map(l => l.username);
+      const maxScore = Math.max(...scoresForWeek.map((s) => s.points));
+      const leaders = scoresForWeek.filter((s) => s.points === maxScore).map((l) => l.username);
 
       if (leaders.length === 0) {
         return { week: w, winner: 'TBD', status: 'Upcoming' };
       }
 
-      const result = resolveWeeklyWinner(w, leaders, data.flatMap(user =>
-        Object.entries(user.weeks).map(([wk, pts]) => ({
-          username: user.username,
-          week: parseInt(wk),
-          points: pts
-        }))
-      ), 14);
+      if (leaders.length === 1) {
+        return {
+          week: w,
+          winner: leaders[0],
+          status: 'Outright',
+        };
+      }
+
+      const result = resolveWeeklyWinner(
+        w,
+        w,
+        leaders,
+        data.flatMap((user) =>
+          Object.entries(user.weeks).map(([wk, pts]) => ({
+            username: user.username,
+            week: parseInt(wk),
+            points: pts,
+          }))
+        ),
+        archivedWeeks,
+        14
+      );
 
       return {
         week: w,
         winner: result.winner,
-        status: result.method
+        status: result.method,
       };
-    }).filter(w => w.winner !== 'TBD');
+    }).filter((w) => w.winner !== 'TBD');
   }, [data, weeks, archivedWeeks]);
 
   return (

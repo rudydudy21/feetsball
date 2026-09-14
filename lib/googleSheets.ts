@@ -986,18 +986,22 @@ export async function updateWeeklyWinnersSheet(): Promise<number> {
   );
 
   const resolveWinner = (
-    week: number,
+    initialWeek: number,
+    currentWeek: number,
     tiedUsers: string[],
     scores: Array<{ username: string; week: number; points: number }>,
     maxWeek = 14
   ): { winner: string; method: string } => {
     if (tiedUsers.length === 1) {
-      return { winner: tiedUsers[0], method: week > 1 ? `Tiebreaker (W${week})` : 'Outright' };
+      return {
+        winner: tiedUsers[0],
+        method: currentWeek > initialWeek ? `Tiebreaker (W${currentWeek})` : 'Outright',
+      };
     }
-    if (week >= maxWeek) {
+    if (currentWeek >= maxWeek) {
       return { winner: tiedUsers.join(' & '), method: 'Split Pot' };
     }
-    const nextWeek = week + 1;
+    const nextWeek = currentWeek + 1;
     if (!archivedWeeks.includes(nextWeek)) {
       return { winner: tiedUsers.join(' & '), method: `Pending Tiebreaker (W${nextWeek})` };
     }
@@ -1011,7 +1015,7 @@ export async function updateWeeklyWinnersSheet(): Promise<number> {
     }));
     const topScore = Math.max(...performance.map((p) => p.score));
     const stillTied = performance.filter((p) => p.score === topScore).map((p) => p.username);
-    return resolveWinner(nextWeek, stillTied, scores, maxWeek);
+    return resolveWinner(initialWeek, nextWeek, stillTied, scores, maxWeek);
   };
 
   const existingRows = await winnersSheet.getRows().catch(() => []);
@@ -1046,7 +1050,7 @@ export async function updateWeeklyWinnersSheet(): Promise<number> {
       tiedParticipants = 'None';
     } else {
       tiedParticipants = leaders.join(', ');
-      const resolution = resolveWinner(w, leaders, allScores, 14);
+      const resolution = resolveWinner(w, w, leaders, allScores, 14);
       winner = resolution.winner;
       method = resolution.method;
     }
