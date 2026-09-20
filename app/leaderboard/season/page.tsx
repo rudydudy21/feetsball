@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo } from 'react';
 interface UserData {
   username: string;
   weeks: { [week: number]: number };
+  weekStatus?: { [week: number]: 'played' | 'bye' | 'penalty' };
   total: number;
 }
 
@@ -328,20 +329,87 @@ export default function SeasonLeaderboard() {
                       </div>
                     </td>
                     {weeks.map((w) => {
-                      const score = user.weeks[w] || 0;
+                      const score = user.weeks[w];
+                      const status = user.weekStatus?.[w];
+
+                      if (status === 'bye') {
+                        return (
+                          <td
+                            key={w}
+                            title="Bye week used (0 pts)"
+                            style={{
+                              padding: '4px 1px',
+                              textAlign: 'center',
+                              fontVariantNumeric: 'tabular-nums',
+                            }}
+                          >
+                            <span
+                              style={{
+                                display: 'inline-block',
+                                fontSize: '8.5px',
+                                fontWeight: '800',
+                                color: '#475569',
+                                backgroundColor: '#F1F5F9',
+                                border: '1px solid #E2E8F0',
+                                borderRadius: '3px',
+                                padding: '1px 2px',
+                                letterSpacing: '-0.3px',
+                                lineHeight: 1.1,
+                              }}
+                            >
+                              (BYE)
+                            </span>
+                          </td>
+                        );
+                      }
+
+                      if (status === 'penalty') {
+                        return (
+                          <td
+                            key={w}
+                            title={`Missed week penalty (${score ?? 0} pts)`}
+                            style={{
+                              padding: '4px 1px',
+                              textAlign: 'center',
+                              fontVariantNumeric: 'tabular-nums',
+                            }}
+                          >
+                            <span
+                              style={{
+                                display: 'inline-block',
+                                fontSize: '9.5px',
+                                fontWeight: '900',
+                                color: '#991B1B',
+                                backgroundColor: '#FEE2E2',
+                                border: '1px solid #FECACA',
+                                borderRadius: '3px',
+                                padding: '1px 3px',
+                                letterSpacing: '-0.3px',
+                                lineHeight: 1.1,
+                              }}
+                            >
+                              [{score ?? -5}]
+                            </span>
+                          </td>
+                        );
+                      }
+
+                      const hasPlayed = status === 'played' || (score !== undefined && score !== 0);
+                      const numScore = score || 0;
+
                       return (
                         <td
                           key={w}
                           style={{
                             padding: '5px 2px',
                             textAlign: 'center',
-                            color: score > 0 ? '#166534' : score < 0 ? '#DC2626' : '#CBD5E1',
-                            fontWeight: score !== 0 ? '800' : 'normal',
+                            color: numScore > 0 ? '#166534' : numScore < 0 ? '#DC2626' : '#CBD5E1',
+                            fontWeight: hasPlayed ? '800' : 'normal',
                             fontSize: '11px',
                             fontVariantNumeric: 'tabular-nums',
                           }}
                         >
-                          {score !== 0 ? score : '-'}
+                          {hasPlayed ? (numScore > 0 ? `+${numScore}` : numScore) : '-'}
                         </td>
                       );
                     })}
@@ -363,6 +431,55 @@ export default function SeasonLeaderboard() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* TABLE LEGEND */}
+        {!loading && data.length > 0 && (
+          <div style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '10px',
+            alignItems: 'center',
+            justifyContent: 'flex-start',
+            padding: '4px 4px 0',
+            fontSize: '9.5px',
+            color: '#64748B',
+            fontWeight: '700',
+          }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+              <span style={{ color: '#166534', fontWeight: '800' }}>+Pts /</span>
+              <span style={{ color: '#DC2626', fontWeight: '800' }}>-Pts</span>
+              Game Score
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+              <span style={{
+                fontSize: '8px',
+                fontWeight: '800',
+                color: '#475569',
+                backgroundColor: '#F1F5F9',
+                border: '1px solid #E2E8F0',
+                borderRadius: '3px',
+                padding: '1px 3px',
+              }}>
+                (BYE)
+              </span>
+              Bye Week (0 pts)
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+              <span style={{
+                fontSize: '9px',
+                fontWeight: '900',
+                color: '#991B1B',
+                backgroundColor: '#FEE2E2',
+                border: '1px solid #FECACA',
+                borderRadius: '3px',
+                padding: '1px 3px',
+              }}>
+                [-5]
+              </span>
+              Missed Week Penalty
+            </span>
           </div>
         )}
 

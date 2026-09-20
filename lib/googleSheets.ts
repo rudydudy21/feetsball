@@ -575,13 +575,21 @@ export async function getSeasonResults() {
     slateByGameId.set(asString(game.GameID), game);
   }
 
-  const userTotals = new Map<string, { username: string; weeks: Record<number, number>; total: number }>();
+  const userTotals = new Map<
+    string,
+    {
+      username: string;
+      weeks: Record<number, number>;
+      weekStatus: Record<number, 'played' | 'bye' | 'penalty'>;
+      total: number;
+    }
+  >();
 
   // Initialize all users
   for (const userRow of usersRows) {
     const username = asString(userRow.get('Username'));
     if (!userTotals.has(username)) {
-      userTotals.set(username, { username, weeks: {}, total: 0 });
+      userTotals.set(username, { username, weeks: {}, weekStatus: {}, total: 0 });
     }
   }
 
@@ -602,7 +610,7 @@ export async function getSeasonResults() {
     if (!username || !week || !gameId || !selection) continue;
 
     if (!userTotals.has(username)) {
-      userTotals.set(username, { username, weeks: {}, total: 0 });
+      userTotals.set(username, { username, weeks: {}, weekStatus: {}, total: 0 });
     }
 
     userWeeksSubmitted.get(username)?.add(week);
@@ -621,6 +629,7 @@ export async function getSeasonResults() {
 
     const entry = userTotals.get(username)!;
     entry.weeks[week] = (entry.weeks[week] ?? 0) + points;
+    entry.weekStatus[week] = 'played';
     entry.total += points;
   }
 
@@ -646,14 +655,17 @@ export async function getSeasonResults() {
       if (isBowlWeek) {
         // Championship weeks: always -15, no bye applies
         entry.weeks[w] = -15;
+        entry.weekStatus[w] = 'penalty';
         entry.total += -15;
       } else if (!byeUsed) {
         // First missed non-championship week: use bye, 0 penalty
         entry.weeks[w] = 0;
+        entry.weekStatus[w] = 'bye';
         byeUsed = true;
       } else {
         // Already used bye: -5 penalty for non-championship weeks
         entry.weeks[w] = -5;
+        entry.weekStatus[w] = 'penalty';
         entry.total += -5;
       }
     }
