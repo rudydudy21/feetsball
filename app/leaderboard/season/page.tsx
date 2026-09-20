@@ -357,7 +357,7 @@ export default function SeasonLeaderboard() {
                                 lineHeight: 1.1,
                               }}
                             >
-                              (BYE)
+                              (0)
                             </span>
                           </td>
                         );
