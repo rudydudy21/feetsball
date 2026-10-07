@@ -155,6 +155,12 @@ export default function SeasonLeaderboard() {
     }).filter((w) => w.winner !== 'TBD');
   }, [data, weeks, archivedWeeks]);
 
+  const getWinnerStatusLabel = (status: string) => {
+    if (status === 'Outright') return '✓';
+    if (status.startsWith('Tiebreaker')) return '↔';
+    return status;
+  };
+
   return (
     <div
       style={{
@@ -236,13 +242,13 @@ export default function SeasonLeaderboard() {
                   <span style={{
                     fontSize: '8.5px',
                     fontWeight: '800',
-                    color: w.status === 'Live' || w.status.includes('Pending') || w.status.includes('Awaiting') ? '#D97706' : '#166534',
-                    backgroundColor: w.status === 'Live' || w.status.includes('Pending') || w.status.includes('Awaiting') ? '#FEF3C7' : '#DCFCE7',
+                    color: w.status.startsWith('Tiebreaker') || w.status === 'Live' || w.status.includes('Pending') || w.status.includes('Awaiting') ? '#D97706' : '#166534',
+                    backgroundColor: w.status.startsWith('Tiebreaker') || w.status === 'Live' || w.status.includes('Pending') || w.status.includes('Awaiting') ? '#FEF3C7' : '#DCFCE7',
                     padding: '2px 5px',
                     borderRadius: '4px',
                     flexShrink: 0,
-                  }}>
-                    {w.status}
+                  }} title={w.status} aria-label={`Winner status: ${w.status}`}>
+                    {getWinnerStatusLabel(w.status)}
                   </span>
                 </div>
               ))}
