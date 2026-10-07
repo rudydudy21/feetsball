@@ -346,14 +346,13 @@ export default function SeasonLeaderboard() {
                             <span
                               style={{
                                 display: 'inline-block',
-                                fontSize: '8.5px',
-                                fontWeight: '800',
+                                fontSize: '9px',
+                                fontWeight: '900',
                                 color: '#475569',
                                 backgroundColor: '#F1F5F9',
                                 border: '1px solid #E2E8F0',
                                 borderRadius: '3px',
                                 padding: '1px 2px',
-                                letterSpacing: '-0.3px',
                                 lineHeight: 1.1,
                               }}
                             >
