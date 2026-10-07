@@ -10,6 +10,7 @@ export const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
 export interface PickConfirmationItem {
   gameId?: string;
+  kickoffTime?: string;
   team: string;
   wager: number;
   spread?: string | number | null;
@@ -30,6 +31,25 @@ export function formatPickSpread(spread: string | number | null | undefined): st
     return num > 0 ? `+${num}` : `${num}`;
   }
   return trimmed;
+}
+
+function formatPickKickoff(kickoffTime: string | undefined): string {
+  if (!kickoffTime) return 'Day/time TBA';
+
+  const date = new Date(kickoffTime);
+  if (Number.isNaN(date.getTime())) return kickoffTime;
+
+  const weekday = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    weekday: 'long',
+  }).format(date);
+  const startTime = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date);
+
+  return `${weekday} · ${startTime} ET`;
 }
 
 export function renderRegistrationConfirmationHtml({
@@ -232,6 +252,7 @@ export function renderPicksConfirmationHtml({
     .map((pick, index) => {
       const wagerLabel = `${pick.wager} ${pick.wager === 1 ? 'POINT' : 'POINTS'}`;
       const formattedSpread = formatPickSpread(pick.spread);
+      const kickoffLabel = formatPickKickoff(pick.kickoffTime);
       const rankBadge = pick.teamRank ? `<span style="color: #64748b; font-size: 11px; font-weight: 900; margin-right: 4px;">#${pick.teamRank}</span>` : '';
       const opponentText = pick.opponent ? `<div style="font-size: 11px; color: #64748b; font-weight: 600; margin-top: 2px;">${pick.isHome ? 'vs' : '@'} ${pick.opponentRank ? '#' + pick.opponentRank + ' ' : ''}${pick.opponent}</div>` : '';
 
@@ -258,6 +279,7 @@ export function renderPicksConfirmationHtml({
                             ${rankBadge}${pick.team}
                           </div>
                           ${opponentText}
+                          <div style="font-size: 11px; color: #64748b; font-weight: 600; margin-top: 3px;">${kickoffLabel}</div>
                         </td>
                       </tr>
                     </table>
@@ -413,7 +435,7 @@ export async function sendPicksConfirmation({
     const pointsLabel = pick.wager === 1 ? 'point' : 'points';
     const rankPrefix = pick.teamRank ? `#${pick.teamRank} ` : '';
     return {
-      text: `${pick.wager} ${pointsLabel} - ${rankPrefix}${pick.team}${spreadBadge}`,
+      text: `${pick.wager} ${pointsLabel} - ${rankPrefix}${pick.team}${spreadBadge} — ${formatPickKickoff(pick.kickoffTime)}`,
     };
   };
 

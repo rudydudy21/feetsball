@@ -159,6 +159,7 @@ export async function POST(request: NextRequest) {
 
       return {
         gameId: pick.gameId,
+        kickoffTime: game ? String(game.Kickoff_Time ?? '') : '',
         team: pick.team,
         wager: pick.wager,
         spread,
