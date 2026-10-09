@@ -18,23 +18,24 @@ const resolveWeeklyWinner = (
   allScores: ScoreEntry[],
   archivedWeeks: number[],
   maxWeek = 14
-): { winner: string; method: string } => {
+): { winner: string; winnerUsernames: string[]; method: string } => {
   if (tiedUsers.length === 1) {
     return {
       winner: tiedUsers[0],
+      winnerUsernames: [tiedUsers[0]],
       method: currentWeek > initialWeek ? `Tiebreaker (W${currentWeek})` : 'Outright',
     };
   }
 
   if (currentWeek >= maxWeek) {
-    return { winner: tiedUsers.join(' & '), method: 'Split Pot' };
+    return { winner: tiedUsers.join(' & '), winnerUsernames: tiedUsers, method: 'Split Pot' };
   }
 
   const nextWeek = currentWeek + 1;
   const nextWeekScores = allScores.filter((s) => s.week === nextWeek);
 
   if (!archivedWeeks.includes(nextWeek) || nextWeekScores.length === 0) {
-    return { winner: tiedUsers.join(' & '), method: `Pending Tiebreaker (W${nextWeek})` };
+    return { winner: tiedUsers.join(' & '), winnerUsernames: [], method: `Pending Tiebreaker (W${nextWeek})` };
   }
 
   const performance = tiedUsers.map((user) => ({
@@ -102,12 +103,14 @@ export default function SeasonLeaderboard() {
           return {
             week: w,
             winner: 'TBD',
+            winnerUsernames: [],
             status: 'Live',
           };
         }
         return {
           week: w,
           winner: 'TBD',
+          winnerUsernames: [],
           status: 'Upcoming',
         };
       }
@@ -121,13 +124,14 @@ export default function SeasonLeaderboard() {
       const leaders = scoresForWeek.filter((s) => s.points === maxScore).map((l) => l.username);
 
       if (leaders.length === 0) {
-        return { week: w, winner: 'TBD', status: 'Upcoming' };
+        return { week: w, winner: 'TBD', winnerUsernames: [], status: 'Upcoming' };
       }
 
       if (leaders.length === 1) {
         return {
           week: w,
           winner: leaders[0],
+          winnerUsernames: [leaders[0]],
           status: 'Outright',
         };
       }
@@ -150,6 +154,7 @@ export default function SeasonLeaderboard() {
       return {
         week: w,
         winner: result.winner,
+        winnerUsernames: result.winnerUsernames,
         status: result.method,
       };
     }).filter((w) => w.winner !== 'TBD');
@@ -337,6 +342,9 @@ export default function SeasonLeaderboard() {
                     {weeks.map((w) => {
                       const score = user.weeks[w];
                       const status = user.weekStatus?.[w];
+                      const weeklyWinner = weeklyWinners.find(
+                        (result) => result.week === w && result.winnerUsernames.includes(user.username)
+                      );
 
                       if (status === 'bye') {
                         return (
@@ -414,7 +422,22 @@ export default function SeasonLeaderboard() {
                             fontVariantNumeric: 'tabular-nums',
                           }}
                         >
-                          {hasPlayed ? (numScore > 0 ? `+${numScore}` : numScore) : '-'}
+                          {hasPlayed ? (
+                            <span
+                              title={weeklyWinner ? `${weeklyWinner.status} weekly winner` : undefined}
+                              style={weeklyWinner ? {
+                                display: 'inline-block',
+                                color: '#166534',
+                                backgroundColor: '#DCFCE7',
+                                border: '1px solid #BBF7D0',
+                                borderRadius: '3px',
+                                padding: '1px 3px',
+                                lineHeight: 1.1,
+                              } : undefined}
+                            >
+                              {numScore > 0 ? `+${numScore}` : numScore}
+                            </span>
+                          ) : '-'}
                         </td>
                       );
                     })}
@@ -456,6 +479,20 @@ export default function SeasonLeaderboard() {
               <span style={{ color: '#166534', fontWeight: '800' }}>+Pts /</span>
               <span style={{ color: '#DC2626', fontWeight: '800' }}>-Pts</span>
               Game Score
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+              <span style={{
+                fontSize: '8px',
+                fontWeight: '900',
+                color: '#166534',
+                backgroundColor: '#DCFCE7',
+                border: '1px solid #BBF7D0',
+                borderRadius: '3px',
+                padding: '1px 3px',
+              }}>
+                WIN
+              </span>
+              Weekly Winner
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
               <span style={{

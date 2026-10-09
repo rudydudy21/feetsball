@@ -14,19 +14,52 @@ export default function WeeklyLeaderboard() {
   const [loading, setLoading] = useState(true);
   const [picksHidden, setPicksHidden] = useState(false);
   const [isArchived, setIsArchived] = useState(false);
+  const [runoff, setRunoff] = useState<{ week: number; usernames: string[] } | null>(null);
 
   const fetchWeekData = useCallback((weekToFetch?: string) => {
     setLoading(true);
     setPicksHidden(false);
     setIsArchived(false);
+    setRunoff(null);
 
     const url = weekToFetch
       ? `/api/get-weekly-results?week=${encodeURIComponent(weekToFetch)}`
       : `/api/get-weekly-results`;
 
-    fetch(url)
-      .then((res) => res.json())
-      .then((resData) => {
+    Promise.all([
+      fetch(url).then((res) => res.json()),
+      fetch('/api/get-season-results').then((res) => res.json()).catch(() => null),
+    ])
+      .then(([resData, seasonResults]) => {
+        const selectedWeek = Number(resData?.week ?? weekToFetch ?? '1');
+        const selectedWeekArchived = Boolean(!Array.isArray(resData) && resData?.isArchived);
+        const isCurrentVisibleWeek =
+          !selectedWeekArchived &&
+          !resData?.picksHidden &&
+          Number(resData?.currentWeek ?? selectedWeek) === selectedWeek;
+        const previousWeek = selectedWeek - 1;
+        const archivedWeeks = Array.isArray(seasonResults?.archivedWeeks) ? seasonResults.archivedWeeks : [];
+
+        if (
+          isCurrentVisibleWeek &&
+          previousWeek > 0 &&
+          archivedWeeks.includes(previousWeek) &&
+          Array.isArray(seasonResults?.data)
+        ) {
+          const previousWeekScores = seasonResults.data.map((user: { username: string; weeks: Record<number, number> }) => ({
+            username: user.username,
+            points: user.weeks[previousWeek] ?? 0,
+          }));
+          const topScore = Math.max(...previousWeekScores.map((user: { points: number }) => user.points));
+          const contenders = previousWeekScores
+            .filter((user: { points: number }) => user.points === topScore)
+            .map((user: { username: string }) => user.username);
+
+          if (contenders.length > 1) {
+            setRunoff({ week: previousWeek, usernames: contenders });
+          }
+        }
+
         if (resData && typeof resData === 'object' && resData.week) {
           setWeek(String(resData.week));
         }
@@ -122,6 +155,11 @@ export default function WeeklyLeaderboard() {
             <span style={{ fontSize: "11px", fontWeight: "900", color: "#64748b", letterSpacing: "0.5px", textTransform: "uppercase" }}>
               Weekly Recap
             </span>
+            {runoff && (
+              <span style={{ fontSize: '9px', fontWeight: '800', color: '#92400E' }}>
+                Week {runoff.week} crown runoff
+              </span>
+            )}
             {!loading && !picksHidden && data.length > 0 && (
               <span style={{
                 fontSize: '9.5px',
@@ -251,6 +289,23 @@ export default function WeeklyLeaderboard() {
                         }}>
                           {user?.username || 'Unknown'}
                         </span>
+                        {runoff?.usernames.includes(user?.username || '') && (
+                          <span
+                            title={`Still in the Week ${runoff.week} crown runoff`}
+                            style={{
+                              fontSize: '7.5px',
+                              fontWeight: '900',
+                              color: '#92400E',
+                              backgroundColor: '#FEF3C7',
+                              border: '1px solid #FDE68A',
+                              borderRadius: '3px',
+                              padding: '1px 3px',
+                              flexShrink: 0,
+                            }}
+                          >
+                            RUNOFF
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td style={{ padding: '6px 4px', textAlign: 'center', fontWeight: '900', color: '#2563EB', fontSize: '12px', fontVariantNumeric: 'tabular-nums' }}>
