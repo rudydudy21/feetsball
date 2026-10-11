@@ -55,7 +55,7 @@ export default function WeeklyLeaderboard() {
             .map((user: { username: string }) => user.username);
 
           if (contenders.length > 1) {
-            setRunoff({ week: runoffWeek, usernames: contenders });
+            setRunoff({ week: runoffWeek + 1, usernames: contenders });
           }
         }
 
