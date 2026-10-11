@@ -32,12 +32,7 @@ export default function WeeklyLeaderboard() {
     ])
       .then(([resData, seasonResults]) => {
         const selectedWeek = Number(resData?.week ?? weekToFetch ?? '1');
-        const selectedWeekArchived = Boolean(!Array.isArray(resData) && resData?.isArchived);
-        const isCurrentVisibleWeek =
-          !selectedWeekArchived &&
-          !resData?.picksHidden &&
-          Number(resData?.currentWeek ?? selectedWeek) === selectedWeek;
-        const runoffWeek = isCurrentVisibleWeek ? selectedWeek - 1 : selectedWeek;
+        const runoffWeek = selectedWeek - 1;
         const archivedWeeks = Array.isArray(seasonResults?.archivedWeeks) ? seasonResults.archivedWeeks : [];
 
         if (
@@ -55,7 +50,7 @@ export default function WeeklyLeaderboard() {
             .map((user: { username: string }) => user.username);
 
           if (contenders.length > 1) {
-            setRunoff({ week: runoffWeek + 1, usernames: contenders });
+            setRunoff({ week: selectedWeek, usernames: contenders });
           }
         }
 
