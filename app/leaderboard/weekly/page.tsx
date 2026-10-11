@@ -37,26 +37,25 @@ export default function WeeklyLeaderboard() {
           !selectedWeekArchived &&
           !resData?.picksHidden &&
           Number(resData?.currentWeek ?? selectedWeek) === selectedWeek;
-        const previousWeek = selectedWeek - 1;
+        const runoffWeek = isCurrentVisibleWeek ? selectedWeek - 1 : selectedWeek;
         const archivedWeeks = Array.isArray(seasonResults?.archivedWeeks) ? seasonResults.archivedWeeks : [];
 
         if (
-          isCurrentVisibleWeek &&
-          previousWeek > 0 &&
-          archivedWeeks.includes(previousWeek) &&
+          runoffWeek > 0 &&
+          archivedWeeks.includes(runoffWeek) &&
           Array.isArray(seasonResults?.data)
         ) {
-          const previousWeekScores = seasonResults.data.map((user: { username: string; weeks: Record<number, number> }) => ({
+          const runoffWeekScores = seasonResults.data.map((user: { username: string; weeks: Record<number, number> }) => ({
             username: user.username,
-            points: user.weeks[previousWeek] ?? 0,
+            points: user.weeks[runoffWeek] ?? 0,
           }));
-          const topScore = Math.max(...previousWeekScores.map((user: { points: number }) => user.points));
-          const contenders = previousWeekScores
+          const topScore = Math.max(...runoffWeekScores.map((user: { points: number }) => user.points));
+          const contenders = runoffWeekScores
             .filter((user: { points: number }) => user.points === topScore)
             .map((user: { username: string }) => user.username);
 
           if (contenders.length > 1) {
-            setRunoff({ week: previousWeek, usernames: contenders });
+            setRunoff({ week: runoffWeek, usernames: contenders });
           }
         }
 
@@ -258,86 +257,77 @@ export default function WeeklyLeaderboard() {
                 </tr>
               </thead>
               <tbody>
-                {data.map((user: WeeklyUser, idx: number) => (
-                  <tr key={user?.username || idx} style={{ borderBottom: idx === data.length - 1 ? 'none' : '1px solid #F1F5F9' }}>
-                    <td style={{ padding: '6px 6px 6px 8px', position: 'sticky', left: 0, backgroundColor: '#FFFFFF', zIndex: 1, whiteSpace: 'nowrap' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <span style={{
-                          fontSize: '9px',
-                          fontWeight: '900',
-                          color: ranks[idx] === 1 ? '#B45309' : ranks[idx] === 2 ? '#475569' : ranks[idx] === 3 ? '#92400E' : '#94A3B8',
-                          backgroundColor: ranks[idx] === 1 ? '#FEF3C7' : ranks[idx] === 2 ? '#F1F5F9' : ranks[idx] === 3 ? '#FEF3C7' : 'transparent',
-                          padding: '1px 4px',
-                          borderRadius: '4px',
-                          minWidth: '18px',
-                          textAlign: 'center',
-                          display: 'inline-block',
-                          fontVariantNumeric: 'tabular-nums',
-                        }}>
-                          #{ranks[idx]}
-                        </span>
-                        <span style={{
-                          fontWeight: '800',
-                          color: '#0F172A',
-                          fontSize: '11.5px',
-                          maxWidth: '85px',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          display: 'inline-block',
-                          letterSpacing: '-0.2px',
-                        }}>
-                          {user?.username || 'Unknown'}
-                        </span>
-                        {runoff?.usernames.includes(user?.username || '') && (
+                {data.map((user: WeeklyUser, idx: number) => {
+                  const isRunoffParticipant = runoff?.usernames.includes(user?.username || '') ?? false;
+
+                  return (
+                    <tr key={user?.username || idx} style={{ borderBottom: idx === data.length - 1 ? 'none' : '1px solid #F1F5F9' }}>
+                      <td style={{ padding: '6px 6px 6px 8px', position: 'sticky', left: 0, backgroundColor: '#FFFFFF', zIndex: 1, whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                           <span
-                            title={`Still in the Week ${runoff.week} crown runoff`}
+                            title={isRunoffParticipant ? `Week ${runoff?.week} crown runoff participant` : undefined}
                             style={{
-                              fontSize: '7.5px',
+                              fontSize: '9px',
                               fontWeight: '900',
-                              color: '#92400E',
-                              backgroundColor: '#FEF3C7',
-                              border: '1px solid #FDE68A',
-                              borderRadius: '3px',
-                              padding: '1px 3px',
-                              flexShrink: 0,
+                              color: isRunoffParticipant ? '#92400E' : '#94A3B8',
+                              backgroundColor: isRunoffParticipant ? '#FEF3C7' : 'transparent',
+                              border: isRunoffParticipant ? '1px solid #FDE68A' : '1px solid transparent',
+                              padding: '1px 4px',
+                              borderRadius: isRunoffParticipant ? '999px' : '4px',
+                              minWidth: '18px',
+                              textAlign: 'center',
+                              display: 'inline-block',
+                              fontVariantNumeric: 'tabular-nums',
                             }}
                           >
-                            RUNOFF
+                            #{ranks[idx]}
                           </span>
-                        )}
-                      </div>
-                    </td>
-                    <td style={{ padding: '6px 4px', textAlign: 'center', fontWeight: '900', color: '#2563EB', fontSize: '12px', fontVariantNumeric: 'tabular-nums' }}>
-                      {user?.total ?? 0}
-                    </td>
-                    {[5, 4, 3, 2, 1].map((num) => {
-                      const p = user?.picks?.[num];
-                      const outcomeStyle = getStyle(p?.outcome);
-                      return (
-                        <td key={num} style={{ padding: '3px 2px' }}>
-                          <div style={{
-                            ...outcomeStyle,
-                            padding: '3px 2px',
-                            borderRadius: '5px',
-                            fontSize: '9px',
+                          <span style={{
                             fontWeight: '800',
-                            textAlign: 'center',
-                            textTransform: 'uppercase',
-                            whiteSpace: 'nowrap',
+                            color: '#0F172A',
+                            fontSize: '11.5px',
+                            maxWidth: '85px',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
-                            maxWidth: '52px',
-                            margin: '0 auto',
-                            letterSpacing: '-0.3px',
+                            whiteSpace: 'nowrap',
+                            display: 'inline-block',
+                            letterSpacing: '-0.2px',
                           }}>
-                            {p?.selection || '-'}
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
+                            {user?.username || 'Unknown'}
+                          </span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '6px 4px', textAlign: 'center', fontWeight: '900', color: '#2563EB', fontSize: '12px', fontVariantNumeric: 'tabular-nums' }}>
+                        {user?.total ?? 0}
+                      </td>
+                      {[5, 4, 3, 2, 1].map((num) => {
+                        const p = user?.picks?.[num];
+                        const outcomeStyle = getStyle(p?.outcome);
+                        return (
+                          <td key={num} style={{ padding: '3px 2px' }}>
+                            <div style={{
+                              ...outcomeStyle,
+                              padding: '3px 2px',
+                              borderRadius: '5px',
+                              fontSize: '9px',
+                              fontWeight: '800',
+                              textAlign: 'center',
+                              textTransform: 'uppercase',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              maxWidth: '52px',
+                              margin: '0 auto',
+                              letterSpacing: '-0.3px',
+                            }}>
+                              {p?.selection || '-'}
+                            </div>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
