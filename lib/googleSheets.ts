@@ -561,6 +561,7 @@ export async function getSeasonResults() {
   ]);
 
   const currentWeekNum = Number(currentWeek);
+  const isPastSatNoon = isPastSaturdayNoonET();
 
   const slateByGameId = new Map<string, any>();
   // Archived historical games
@@ -599,6 +600,20 @@ export async function getSeasonResults() {
     userWeeksSubmitted.set(asString(userRow.get('Username')), new Set());
   }
 
+  const weeklyPicks: Record<
+    number,
+    { picksHidden: boolean; players: Record<string, Record<number, { selection: string; outcome: string }>> }
+  > = {};
+  for (let week = 1; week <= 14; week++) {
+    weeklyPicks[week] = {
+      picksHidden:
+        !archivedWeeks.includes(week) &&
+        Number.isFinite(currentWeekNum) &&
+        (week > currentWeekNum || (week === currentWeekNum && !isPastSatNoon)),
+      players: {},
+    };
+  }
+
   // Process all picks
   for (const row of pickRows) {
     const username = asString(row.get('Username'));
@@ -616,16 +631,31 @@ export async function getSeasonResults() {
     userWeeksSubmitted.get(username)?.add(week);
 
     const game = slateByGameId.get(gameId);
+    const numericWager = Number.isFinite(wager) ? Math.max(1, Math.round(wager)) : 1;
     const points = game && asString(game.Status).toLowerCase() === 'final'
       ? (() => {
           const spreadResult = getSpreadResultForPick(game, selection);
-          const numericWager = Number.isFinite(wager) ? Math.max(1, Math.round(wager)) : 1;
           if (spreadResult === 'correct') return numericWager;
           if (spreadResult === 'push') return 0;
           if (spreadResult === 'incorrect') return -numericWager;
           return 0;
         })()
       : 0;
+
+    if (weeklyPicks[week] && !weeklyPicks[week].picksHidden) {
+      let outcome: 'correct' | 'incorrect' | 'push' | 'live' | 'pending' = 'pending';
+      if (game && isGameFinal(game)) {
+        const spreadResult = getSpreadResultForPick(game, selection);
+        if (spreadResult === 'correct' || spreadResult === 'incorrect' || spreadResult === 'push') {
+          outcome = spreadResult;
+        }
+      } else if (game && isGameLive(game)) {
+        outcome = 'live';
+      }
+
+      weeklyPicks[week].players[username] ??= {};
+      weeklyPicks[week].players[username][numericWager] = { selection, outcome };
+    }
 
     const entry = userTotals.get(username)!;
     entry.weeks[week] = (entry.weeks[week] ?? 0) + points;
@@ -643,7 +673,6 @@ export async function getSeasonResults() {
     let byeUsed = false;
 
     // Check completed/archived weeks plus current week if past Saturday noon
-    const isPastSatNoon = isPastSaturdayNoonET();
     const passedCurrentWeek = isPastSatNoon ? currentWeekNum : currentWeekNum - 1;
     const weeksToCheck = Math.max(...(archivedWeeks.length > 0 ? archivedWeeks : [0]), passedCurrentWeek);
     for (let w = 1; w <= weeksToCheck; w++) {
@@ -677,6 +706,7 @@ export async function getSeasonResults() {
     data: sortedData,
     archivedWeeks,
     currentWeek: currentWeekNum,
+    weeklyPicks,
   };
 }
 
