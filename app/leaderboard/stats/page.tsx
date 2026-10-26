@@ -76,6 +76,7 @@ export default function PlayerStats() {
   const playedWeeks = selectedPlayer
     ? Object.values(selectedPlayer.weekStatus ?? {}).filter((status) => status === 'played').length
     : 0;
+  const visibleWeeks = weeks.filter((week) => week <= currentWeek);
 
   const getStyle = (outcome?: string) => {
     if (outcome === 'correct') return { backgroundColor: '#DCFCE7', color: '#166534', border: '1px solid #BBF7D0' };
@@ -196,28 +197,21 @@ export default function PlayerStats() {
                 </tr>
               </thead>
               <tbody>
-                {weeks.map((week, index) => {
+                {visibleWeeks.map((week, index) => {
                   const weekResult = playerWeeks[week];
                   const playerPicks = weekResult?.players[selectedUsername] ?? {};
                   const status = selectedPlayer?.weekStatus?.[week];
                   const score = selectedPlayer?.weeks?.[week];
-                  const isUpcoming = week > currentWeek;
 
                   return (
-                    <tr key={week} style={{ borderBottom: index === weeks.length - 1 ? 'none' : '1px solid #F1F5F9' }}>
+                    <tr key={week} style={{ borderBottom: index === visibleWeeks.length - 1 ? 'none' : '1px solid #F1F5F9' }}>
                       <td style={{ padding: '6px 6px 6px 8px', position: 'sticky', left: 0, backgroundColor: '#FFFFFF', zIndex: 1, whiteSpace: 'nowrap' }}>
                         <span style={{ fontWeight: '800', color: '#0F172A', fontSize: '11.5px' }}>Week {week}</span>
-                        {weekResult?.picksHidden && (
-                          <span style={{ marginLeft: '4px', color: '#D97706', fontSize: '8px', fontWeight: '900' }}>LOCKED</span>
-                        )}
                         {status === 'bye' && (
                           <span style={{ marginLeft: '4px', color: '#64748B', fontSize: '8px', fontWeight: '900' }}>BYE</span>
                         )}
                         {status === 'penalty' && (
                           <span style={{ marginLeft: '4px', color: '#DC2626', fontSize: '8px', fontWeight: '900' }}>PENALTY</span>
-                        )}
-                        {isUpcoming && (
-                          <span style={{ marginLeft: '4px', color: '#94A3B8', fontSize: '8px', fontWeight: '900' }}>UPCOMING</span>
                         )}
                       </td>
                       <td style={{ padding: '6px 4px', textAlign: 'center', fontWeight: '900', color: (score ?? 0) > 0 ? '#166534' : (score ?? 0) < 0 ? '#DC2626' : '#94A3B8', fontSize: '12px', fontVariantNumeric: 'tabular-nums' }}>
