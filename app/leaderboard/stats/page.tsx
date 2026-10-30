@@ -26,6 +26,8 @@ type TeamPerformance = { team: string; selections: number; wins: number; losses:
 
 const weeks = Array.from({ length: 14 }, (_, index) => index + 1);
 const wagerSlots = [5, 4, 3, 2, 1];
+const tableHeaderFontSize = '9px';
+const tableBodyFontSize = '10px';
 
 export default function PlayerStats() {
   const [players, setPlayers] = useState<SeasonPlayer[]>([]);
@@ -334,14 +336,14 @@ export default function PlayerStats() {
             <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
               <thead>
                 <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-                  <th style={{ width: '92px', padding: '7px 3px 7px 6px', fontSize: '9px', fontWeight: '900', letterSpacing: '0.02em', textTransform: 'uppercase', color: '#64748B', position: 'sticky', left: 0, backgroundColor: '#F8FAFC', zIndex: 2 }}>
+                  <th style={{ width: '92px', padding: '7px 3px 7px 6px', fontSize: tableHeaderFontSize, fontWeight: '900', letterSpacing: '0.02em', textTransform: 'uppercase', color: '#64748B', position: 'sticky', left: 0, backgroundColor: '#F8FAFC', zIndex: 2 }}>
                     Week
                   </th>
-                  <th style={{ width: '34px', padding: '7px 1px', textAlign: 'center', fontSize: '9px', fontWeight: '900', letterSpacing: '0.02em', textTransform: 'uppercase', color: '#64748B' }}>
+                  <th style={{ width: '34px', padding: '7px 1px', textAlign: 'center', fontSize: tableHeaderFontSize, fontWeight: '900', letterSpacing: '0.02em', textTransform: 'uppercase', color: '#64748B' }}>
                     Pts
                   </th>
                   {wagerSlots.map((wager) => (
-                    <th key={wager} style={{ padding: '7px 1px', textAlign: 'center', fontSize: '8.5px', fontWeight: '900', letterSpacing: '0.01em', textTransform: 'uppercase', color: '#64748B' }}>
+                    <th key={wager} style={{ padding: '7px 1px', textAlign: 'center', fontSize: tableHeaderFontSize, fontWeight: '900', letterSpacing: '0.01em', textTransform: 'uppercase', color: '#64748B' }}>
                       {wager}pt
                     </th>
                   ))}
@@ -357,15 +359,15 @@ export default function PlayerStats() {
                   return (
                     <tr key={week} style={{ borderBottom: index === visibleWeeks.length - 1 ? 'none' : '1px solid #F1F5F9' }}>
                       <td style={{ padding: '6px 3px 6px 6px', position: 'sticky', left: 0, backgroundColor: '#FFFFFF', zIndex: 1, whiteSpace: 'nowrap', overflow: 'hidden' }}>
-                        <span style={{ fontWeight: '800', color: '#0F172A', fontSize: '11.5px' }}>Week {week}</span>
+                        <span style={{ fontWeight: '800', color: '#0F172A', fontSize: tableBodyFontSize }}>Week {week}</span>
                         {status === 'bye' && (
-                          <span style={{ marginLeft: '2px', color: '#64748B', fontSize: '7px', fontWeight: '900' }}>BYE</span>
+                          <span style={{ marginLeft: '2px', color: '#64748B', fontSize: tableBodyFontSize, fontWeight: '900' }}>BYE</span>
                         )}
                         {status === 'penalty' && (
-                          <span style={{ marginLeft: '2px', color: '#DC2626', fontSize: '7px', fontWeight: '900' }}>PENALTY</span>
+                          <span style={{ marginLeft: '2px', color: '#DC2626', fontSize: tableBodyFontSize, fontWeight: '900' }}>PENALTY</span>
                         )}
                       </td>
-                      <td style={{ padding: '6px 1px', textAlign: 'center', fontWeight: '900', color: (score ?? 0) > 0 ? '#166534' : (score ?? 0) < 0 ? '#DC2626' : '#94A3B8', fontSize: '11px', fontVariantNumeric: 'tabular-nums' }}>
+                      <td style={{ padding: '6px 1px', textAlign: 'center', fontWeight: '900', color: (score ?? 0) > 0 ? '#166534' : (score ?? 0) < 0 ? '#DC2626' : '#94A3B8', fontSize: tableBodyFontSize, fontVariantNumeric: 'tabular-nums' }}>
                         {score ?? (status === 'played' ? 0 : '-')}
                       </td>
                       {wagerSlots.map((wager) => {
@@ -376,7 +378,7 @@ export default function PlayerStats() {
                               ...getStyle(pick?.outcome),
                               padding: '3px 2px',
                               borderRadius: '5px',
-                              fontSize: '8px',
+                              fontSize: tableBodyFontSize,
                               fontWeight: '800',
                               textAlign: 'center',
                               textTransform: 'uppercase',
@@ -416,9 +418,9 @@ export default function PlayerStats() {
               <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
                 <thead>
                   <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-                    <th style={{ width: '76px', padding: '7px 3px 7px 6px', fontSize: '8.5px', fontWeight: '900', letterSpacing: '0.01em', textTransform: 'uppercase', color: '#64748B', position: 'sticky', left: 0, backgroundColor: '#F8FAFC', zIndex: 2 }}>Stats</th>
+                    <th style={{ width: '76px', padding: '7px 3px 7px 6px', fontSize: tableHeaderFontSize, fontWeight: '900', letterSpacing: '0.01em', textTransform: 'uppercase', color: '#64748B', position: 'sticky', left: 0, backgroundColor: '#F8FAFC', zIndex: 2 }}>Stats</th>
                     {weightColumns.map((column) => (
-                      <th key={column.label} style={{ padding: '7px 1px', textAlign: 'center', fontSize: '8px', fontWeight: '900', letterSpacing: '0', textTransform: 'uppercase', color: column.isTotal ? '#0F172A' : '#64748B', backgroundColor: column.isTotal ? '#F1F5F9' : undefined, position: column.isTotal ? 'sticky' : undefined, right: column.isTotal ? 0 : undefined, zIndex: column.isTotal ? 2 : undefined }}>{column.label}</th>
+                      <th key={column.label} style={{ padding: '7px 1px', textAlign: 'center', fontSize: tableHeaderFontSize, fontWeight: '900', letterSpacing: '0', textTransform: 'uppercase', color: column.isTotal ? '#0F172A' : '#64748B', backgroundColor: column.isTotal ? '#F1F5F9' : undefined, position: column.isTotal ? 'sticky' : undefined, right: column.isTotal ? 0 : undefined, zIndex: column.isTotal ? 2 : undefined }}>{column.label}</th>
                     ))}
                   </tr>
                 </thead>
@@ -429,14 +431,14 @@ export default function PlayerStats() {
                         <th
                           colSpan={weightColumns.length + 1}
                           scope="rowgroup"
-                          style={{ padding: '5px 8px', textAlign: 'left', color: '#64748B', fontSize: '9px', fontWeight: '900', letterSpacing: '0.04em', textTransform: 'uppercase' }}
+                          style={{ padding: '5px 8px', textAlign: 'left', color: '#64748B', fontSize: tableHeaderFontSize, fontWeight: '900', letterSpacing: '0.04em', textTransform: 'uppercase' }}
                         >
                           {group.label}
                         </th>
                       </tr>
                       {group.rows.map((row, index) => (
                         <tr key={row.label} style={{ borderBottom: index === group.rows.length - 1 ? '1px solid #E2E8F0' : '1px solid #F1F5F9' }}>
-                          <td style={{ padding: '6px 3px 6px 6px', fontSize: '10px', fontWeight: '800', color: '#0F172A', whiteSpace: 'nowrap', position: 'sticky', left: 0, backgroundColor: '#FFFFFF', zIndex: 1 }}>{row.label}</td>
+                          <td style={{ padding: '6px 3px 6px 6px', fontSize: tableBodyFontSize, fontWeight: '800', color: '#0F172A', whiteSpace: 'nowrap', position: 'sticky', left: 0, backgroundColor: '#FFFFFF', zIndex: 1 }}>{row.label}</td>
                           {weightColumns.map((column) => {
                             const points = row.netPoints?.(column.performance);
                             return (
@@ -444,7 +446,7 @@ export default function PlayerStats() {
                                 padding: '6px 1px',
                                 textAlign: 'center',
                                 fontWeight: points === undefined ? '800' : '900',
-                                fontSize: '10px',
+                                fontSize: tableBodyFontSize,
                                 color: points === undefined ? '#0F172A' : points > 0 ? '#166534' : points < 0 ? '#DC2626' : '#94A3B8',
                                 backgroundColor: column.isTotal ? '#F8FAFC' : undefined,
                                 position: column.isTotal ? 'sticky' : undefined,
@@ -482,19 +484,19 @@ export default function PlayerStats() {
               <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
                 <thead>
                   <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-                    <th style={{ width: '48%', padding: '7px 3px 7px 6px', fontSize: '8.5px', fontWeight: '900', letterSpacing: '0.01em', textTransform: 'uppercase', color: '#64748B' }}>Team</th>
-                    <th style={{ width: '15%', padding: '7px 1px', textAlign: 'center', fontSize: '8px', fontWeight: '900', letterSpacing: '0', textTransform: 'uppercase', color: '#64748B' }}>Picks</th>
-                    <th style={{ width: '15%', padding: '7px 1px', textAlign: 'center', fontSize: '8px', fontWeight: '900', letterSpacing: '0', textTransform: 'uppercase', color: '#64748B' }}>W/L</th>
-                    <th style={{ width: '22%', padding: '7px 6px 7px 1px', textAlign: 'right', fontSize: '8px', fontWeight: '900', letterSpacing: '0', textTransform: 'uppercase', color: '#64748B' }}>Net Pts</th>
+                    <th style={{ width: '48%', padding: '7px 3px 7px 6px', fontSize: tableHeaderFontSize, fontWeight: '900', letterSpacing: '0.01em', textTransform: 'uppercase', color: '#64748B' }}>Team</th>
+                    <th style={{ width: '15%', padding: '7px 1px', textAlign: 'center', fontSize: tableHeaderFontSize, fontWeight: '900', letterSpacing: '0', textTransform: 'uppercase', color: '#64748B' }}>Picks</th>
+                    <th style={{ width: '15%', padding: '7px 1px', textAlign: 'center', fontSize: tableHeaderFontSize, fontWeight: '900', letterSpacing: '0', textTransform: 'uppercase', color: '#64748B' }}>W/L</th>
+                    <th style={{ width: '22%', padding: '7px 6px 7px 1px', textAlign: 'right', fontSize: tableHeaderFontSize, fontWeight: '900', letterSpacing: '0', textTransform: 'uppercase', color: '#64748B' }}>Net Pts</th>
                   </tr>
                 </thead>
                 <tbody>
                   {teamPerformance.map((result, index) => (
                     <tr key={result.team} style={{ borderBottom: index === teamPerformance.length - 1 ? 'none' : '1px solid #F1F5F9' }}>
-                      <td style={{ padding: '6px 3px 6px 6px', fontWeight: '800', color: '#0F172A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{result.team}</td>
-                      <td style={{ padding: '6px 1px', textAlign: 'center', fontWeight: '800', color: '#0F172A', fontVariantNumeric: 'tabular-nums' }}>{result.selections}</td>
-                      <td style={{ padding: '6px 1px', textAlign: 'center', fontWeight: '800', color: '#0F172A', fontVariantNumeric: 'tabular-nums' }}>{result.wins}-{result.losses}</td>
-                      <td style={{ padding: '6px 6px 6px 1px', textAlign: 'right', fontWeight: '900', color: result.netPoints > 0 ? '#166534' : result.netPoints < 0 ? '#DC2626' : '#94A3B8', fontVariantNumeric: 'tabular-nums' }}>
+                      <td style={{ padding: '6px 3px 6px 6px', fontSize: tableBodyFontSize, fontWeight: '800', color: '#0F172A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{result.team}</td>
+                      <td style={{ padding: '6px 1px', textAlign: 'center', fontSize: tableBodyFontSize, fontWeight: '800', color: '#0F172A', fontVariantNumeric: 'tabular-nums' }}>{result.selections}</td>
+                      <td style={{ padding: '6px 1px', textAlign: 'center', fontSize: tableBodyFontSize, fontWeight: '800', color: '#0F172A', fontVariantNumeric: 'tabular-nums' }}>{result.wins}-{result.losses}</td>
+                      <td style={{ padding: '6px 6px 6px 1px', textAlign: 'right', fontSize: tableBodyFontSize, fontWeight: '900', color: result.netPoints > 0 ? '#166534' : result.netPoints < 0 ? '#DC2626' : '#94A3B8', fontVariantNumeric: 'tabular-nums' }}>
                         {result.netPoints > 0 ? `+${result.netPoints}` : result.netPoints}
                       </td>
                     </tr>
