@@ -1,6 +1,6 @@
 "use client";
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 
 type SeasonPlayer = {
   username: string;
@@ -9,8 +9,20 @@ type SeasonPlayer = {
   total: number;
 };
 
-type Pick = { selection?: string; outcome?: string };
+type Pick = { selection?: string; outcome?: string; side?: 'favorite' | 'dog' | null };
 type PlayerWeek = { players: Record<string, Record<number, Pick>>; picksHidden: boolean };
+type WeightPerformance = {
+  wins: number;
+  losses: number;
+  netPoints: number;
+  dogWins: number;
+  dogLosses: number;
+  dogNetPoints: number;
+  favoriteWins: number;
+  favoriteLosses: number;
+  favoriteNetPoints: number;
+};
+type TeamPerformance = { team: string; selections: number; wins: number; losses: number; netPoints: number };
 
 const weeks = Array.from({ length: 14 }, (_, index) => index + 1);
 const wagerSlots = [5, 4, 3, 2, 1];
@@ -77,6 +89,145 @@ export default function PlayerStats() {
     ? Object.values(selectedPlayer.weekStatus ?? {}).filter((status) => status === 'played').length
     : 0;
   const visibleWeeks = weeks.filter((week) => week <= currentWeek);
+  const weightPerformance = useMemo(() => {
+    const performance: Record<number, WeightPerformance> = Object.fromEntries(
+      wagerSlots.map((weight) => [
+        weight,
+        {
+          wins: 0,
+          losses: 0,
+          netPoints: 0,
+          dogWins: 0,
+          dogLosses: 0,
+          dogNetPoints: 0,
+          favoriteWins: 0,
+          favoriteLosses: 0,
+          favoriteNetPoints: 0,
+        },
+      ])
+    );
+
+    for (const week of visibleWeeks) {
+      const picks = playerWeeks[week]?.players[selectedUsername] ?? {};
+      for (const weight of wagerSlots) {
+        const outcome = picks[weight]?.outcome;
+        const side = picks[weight]?.side;
+        if (outcome === 'correct') {
+          performance[weight].wins++;
+          performance[weight].netPoints += weight;
+          if (side === 'dog') {
+            performance[weight].dogWins++;
+            performance[weight].dogNetPoints += weight;
+          } else if (side === 'favorite') {
+            performance[weight].favoriteWins++;
+            performance[weight].favoriteNetPoints += weight;
+          }
+        } else if (outcome === 'incorrect') {
+          performance[weight].losses++;
+          performance[weight].netPoints -= weight;
+          if (side === 'dog') {
+            performance[weight].dogLosses++;
+            performance[weight].dogNetPoints -= weight;
+          } else if (side === 'favorite') {
+            performance[weight].favoriteLosses++;
+            performance[weight].favoriteNetPoints -= weight;
+          }
+        }
+      }
+    }
+
+    return performance;
+  }, [playerWeeks, selectedUsername, visibleWeeks]);
+  const totalWeightPerformance = useMemo(
+    () => wagerSlots.reduce<WeightPerformance>((total, weight) => {
+      const result = weightPerformance[weight];
+      total.wins += result.wins;
+      total.losses += result.losses;
+      total.netPoints += result.netPoints;
+      total.dogWins += result.dogWins;
+      total.dogLosses += result.dogLosses;
+      total.dogNetPoints += result.dogNetPoints;
+      total.favoriteWins += result.favoriteWins;
+      total.favoriteLosses += result.favoriteLosses;
+      total.favoriteNetPoints += result.favoriteNetPoints;
+      return total;
+    }, {
+      wins: 0,
+      losses: 0,
+      netPoints: 0,
+      dogWins: 0,
+      dogLosses: 0,
+      dogNetPoints: 0,
+      favoriteWins: 0,
+      favoriteLosses: 0,
+      favoriteNetPoints: 0,
+    }),
+    [weightPerformance]
+  );
+  const weightColumns = [
+    ...wagerSlots.map((weight) => ({ label: `${weight}pt`, performance: weightPerformance[weight], isTotal: false })),
+    { label: 'Total', performance: totalWeightPerformance, isTotal: true },
+  ];
+  const weightPerformanceGroups: Array<{
+    label: string;
+    rows: Array<{
+      label: string;
+      value: (performance: WeightPerformance) => string;
+      netPoints?: (performance: WeightPerformance) => number;
+    }>;
+  }> = [
+    {
+      label: 'All Picks',
+      rows: [
+        { label: 'W/L', value: (performance) => `${performance.wins}-${performance.losses}` },
+        { label: 'Net Points', value: (performance) => String(performance.netPoints), netPoints: (performance) => performance.netPoints },
+      ],
+    },
+    {
+      label: 'Dogs',
+      rows: [
+        { label: 'W/L', value: (performance) => `${performance.dogWins}-${performance.dogLosses}` },
+        { label: 'Net Points', value: (performance) => String(performance.dogNetPoints), netPoints: (performance) => performance.dogNetPoints },
+      ],
+    },
+    {
+      label: 'Favorites',
+      rows: [
+        { label: 'W/L', value: (performance) => `${performance.favoriteWins}-${performance.favoriteLosses}` },
+        { label: 'Net Points', value: (performance) => String(performance.favoriteNetPoints), netPoints: (performance) => performance.favoriteNetPoints },
+      ],
+    },
+  ];
+  const teamPerformance = useMemo(() => {
+    const performance = new Map<string, TeamPerformance>();
+
+    for (const week of visibleWeeks) {
+      const picks = playerWeeks[week]?.players[selectedUsername] ?? {};
+      for (const weight of wagerSlots) {
+        const pick = picks[weight];
+        const team = pick?.selection?.trim();
+        if (!team) continue;
+
+        const key = team.toLocaleLowerCase();
+        const result = performance.get(key) ?? { team, selections: 0, wins: 0, losses: 0, netPoints: 0 };
+        result.selections++;
+        if (pick.outcome === 'correct') {
+          result.wins++;
+          result.netPoints += weight;
+        } else if (pick.outcome === 'incorrect') {
+          result.losses++;
+          result.netPoints -= weight;
+        }
+        performance.set(key, result);
+      }
+    }
+
+    return Array.from(performance.values()).sort((a, b) =>
+      b.selections - a.selections ||
+      b.netPoints - a.netPoints ||
+      a.team.localeCompare(b.team, undefined, { sensitivity: 'base' })
+    );
+  }, [playerWeeks, selectedUsername, visibleWeeks]);
 
   const getStyle = (outcome?: string) => {
     if (outcome === 'correct') return { backgroundColor: '#DCFCE7', color: '#166534', border: '1px solid #BBF7D0' };
@@ -246,6 +397,110 @@ export default function PlayerStats() {
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {selectedPlayer && !loading && !error && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <span style={{ fontSize: '11px', fontWeight: '900', color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase', paddingLeft: '2px' }}>
+              Weight Performance
+            </span>
+            <div style={{
+              overflowX: 'auto',
+              backgroundColor: '#FFFFFF',
+              borderRadius: '14px',
+              boxShadow: '0 2px 4px rgba(15, 23, 42, 0.04)',
+              border: '1px solid #E2E8F0',
+              WebkitOverflowScrolling: 'touch',
+            }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px', minWidth: '400px' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+                    <th style={{ padding: '7px 6px 7px 8px', fontSize: '9.5px', fontWeight: '900', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#64748B', position: 'sticky', left: 0, backgroundColor: '#F8FAFC', zIndex: 2 }}>Stats</th>
+                    {weightColumns.map((column) => (
+                      <th key={column.label} style={{ padding: '7px 4px', textAlign: 'center', fontSize: '9.5px', fontWeight: '900', letterSpacing: '0.04em', textTransform: 'uppercase', color: column.isTotal ? '#0F172A' : '#64748B', backgroundColor: column.isTotal ? '#F1F5F9' : undefined, position: column.isTotal ? 'sticky' : undefined, right: column.isTotal ? 0 : undefined, zIndex: column.isTotal ? 2 : undefined }}>{column.label}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {weightPerformanceGroups.map((group) => (
+                    <Fragment key={group.label}>
+                      <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+                        <th
+                          colSpan={weightColumns.length + 1}
+                          scope="rowgroup"
+                          style={{ padding: '5px 8px', textAlign: 'left', color: '#64748B', fontSize: '9px', fontWeight: '900', letterSpacing: '0.04em', textTransform: 'uppercase' }}
+                        >
+                          {group.label}
+                        </th>
+                      </tr>
+                      {group.rows.map((row, index) => (
+                        <tr key={row.label} style={{ borderBottom: index === group.rows.length - 1 ? '1px solid #E2E8F0' : '1px solid #F1F5F9' }}>
+                          <td style={{ padding: '6px 6px 6px 8px', fontWeight: '800', color: '#0F172A', whiteSpace: 'nowrap', position: 'sticky', left: 0, backgroundColor: '#FFFFFF', zIndex: 1 }}>{row.label}</td>
+                          {weightColumns.map((column) => {
+                            const points = row.netPoints?.(column.performance);
+                            return (
+                              <td key={column.label} style={{
+                                padding: '6px 4px',
+                                textAlign: 'center',
+                                fontWeight: points === undefined ? '800' : '900',
+                                color: points === undefined ? '#0F172A' : points > 0 ? '#166534' : points < 0 ? '#DC2626' : '#94A3B8',
+                                backgroundColor: column.isTotal ? '#F8FAFC' : undefined,
+                                position: column.isTotal ? 'sticky' : undefined,
+                                right: column.isTotal ? 0 : undefined,
+                                zIndex: column.isTotal ? 1 : undefined,
+                                fontVariantNumeric: 'tabular-nums',
+                              }}>
+                                {points !== undefined && points > 0 ? `+${points}` : row.value(column.performance)}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {selectedPlayer && !loading && !error && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <span style={{ fontSize: '11px', fontWeight: '900', color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase', paddingLeft: '2px' }}>
+              Team Preference
+            </span>
+            <div style={{
+              overflowX: 'auto',
+              backgroundColor: '#FFFFFF',
+              borderRadius: '14px',
+              boxShadow: '0 2px 4px rgba(15, 23, 42, 0.04)',
+              border: '1px solid #E2E8F0',
+              WebkitOverflowScrolling: 'touch',
+            }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px', minWidth: '340px' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+                    <th style={{ padding: '7px 6px 7px 8px', fontSize: '9.5px', fontWeight: '900', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#64748B' }}>Team</th>
+                    <th style={{ padding: '7px 4px', textAlign: 'center', fontSize: '9.5px', fontWeight: '900', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#64748B' }}>Picks</th>
+                    <th style={{ padding: '7px 4px', textAlign: 'center', fontSize: '9.5px', fontWeight: '900', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#64748B' }}>W/L</th>
+                    <th style={{ padding: '7px 8px', textAlign: 'right', fontSize: '9.5px', fontWeight: '900', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#64748B' }}>Net Points</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {teamPerformance.map((result, index) => (
+                    <tr key={result.team} style={{ borderBottom: index === teamPerformance.length - 1 ? 'none' : '1px solid #F1F5F9' }}>
+                      <td style={{ padding: '6px 6px 6px 8px', fontWeight: '800', color: '#0F172A' }}>{result.team}</td>
+                      <td style={{ padding: '6px 4px', textAlign: 'center', fontWeight: '800', color: '#0F172A', fontVariantNumeric: 'tabular-nums' }}>{result.selections}</td>
+                      <td style={{ padding: '6px 4px', textAlign: 'center', fontWeight: '800', color: '#0F172A', fontVariantNumeric: 'tabular-nums' }}>{result.wins}-{result.losses}</td>
+                      <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: '900', color: result.netPoints > 0 ? '#166534' : result.netPoints < 0 ? '#DC2626' : '#94A3B8', fontVariantNumeric: 'tabular-nums' }}>
+                        {result.netPoints > 0 ? `+${result.netPoints}` : result.netPoints}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

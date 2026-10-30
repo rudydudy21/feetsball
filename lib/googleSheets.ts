@@ -61,6 +61,25 @@ const getSpreadResultForPick = (game: { AwayTeam?: string; HomeTeam?: string; Sp
   return 'incorrect';
 };
 
+const getSpreadSideForPick = (
+  game: { AwayTeam?: string; HomeTeam?: string; Spread?: string | number },
+  selectedTeam: string
+): 'favorite' | 'dog' | null => {
+  const selectedKey = normalizeTeamKey(selectedTeam);
+  const awayKey = normalizeTeamKey(game.AwayTeam);
+  const homeKey = normalizeTeamKey(game.HomeTeam);
+  if (!selectedKey || (selectedKey !== awayKey && selectedKey !== homeKey)) return null;
+
+  const rawSpread = asString(game.Spread);
+  if (!rawSpread || rawSpread.toUpperCase() === 'PUSH' || rawSpread.toUpperCase() === 'CHECK SPREAD') return null;
+
+  const spread = parseSpreadValue(rawSpread);
+  const selectedSideSpread = selectedKey === awayKey ? -spread : spread;
+  if (selectedSideSpread < 0) return 'favorite';
+  if (selectedSideSpread > 0) return 'dog';
+  return null;
+};
+
 const isGameStarted = (kickoff: string | undefined) => {
   if (!kickoff) return false;
   const kickoffDate = new Date(kickoff);
@@ -602,7 +621,7 @@ export async function getSeasonResults() {
 
   const weeklyPicks: Record<
     number,
-    { picksHidden: boolean; players: Record<string, Record<number, { selection: string; outcome: string }>> }
+    { picksHidden: boolean; players: Record<string, Record<number, { selection: string; outcome: string; side: 'favorite' | 'dog' | null }>> }
   > = {};
   for (let week = 1; week <= 14; week++) {
     weeklyPicks[week] = {
@@ -654,7 +673,11 @@ export async function getSeasonResults() {
       }
 
       weeklyPicks[week].players[username] ??= {};
-      weeklyPicks[week].players[username][numericWager] = { selection, outcome };
+      weeklyPicks[week].players[username][numericWager] = {
+        selection,
+        outcome,
+        side: game ? getSpreadSideForPick(game, selection) : null,
+      };
     }
 
     const entry = userTotals.get(username)!;
